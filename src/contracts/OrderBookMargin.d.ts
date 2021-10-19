@@ -19,19 +19,17 @@ import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
 import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
 
-interface OrderBookInterface extends ethers.utils.Interface {
+interface OrderBookMarginInterface extends ethers.utils.Interface {
   functions: {
     "DOMAIN_SEPARATOR()": FunctionFragment;
     "allHashes(uint256,uint256)": FunctionFragment;
-    "createOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
-    "getMaker(bytes32)": FunctionFragment;
-    "hashesOfFromToken(address,uint256,uint256)": FunctionFragment;
-    "hashesOfMaker(address,uint256,uint256)": FunctionFragment;
-    "hashesOfToToken(address,uint256,uint256)": FunctionFragment;
+    "createOrder((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
+    "getTrader(bytes32)": FunctionFragment;
+    "hashesOfCollateralToken(address,uint256,uint256)": FunctionFragment;
+    "hashesOfTrader(address,uint256,uint256)": FunctionFragment;
     "numberOfAllHashes()": FunctionFragment;
-    "numberOfHashesOfFromToken(address)": FunctionFragment;
-    "numberOfHashesOfMaker(address)": FunctionFragment;
-    "numberOfHashesOfToToken(address)": FunctionFragment;
+    "numberOfHashesOfCollateralToken(address)": FunctionFragment;
+    "numberOfHashesOfTrader(address)": FunctionFragment;
     "orderOfHash(bytes32)": FunctionFragment;
   };
 
@@ -47,31 +45,33 @@ interface OrderBookInterface extends ethers.utils.Interface {
     functionFragment: "createOrder",
     values: [
       {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumberish;
-        amountOutMin: BigNumberish;
-        recipient: string;
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
         deadline: BigNumberish;
-        created: BigNumberish;
+        createdTimestamp: BigNumberish;
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
       }
     ]
   ): string;
-  encodeFunctionData(functionFragment: "getMaker", values: [BytesLike]): string;
   encodeFunctionData(
-    functionFragment: "hashesOfFromToken",
+    functionFragment: "getTrader",
+    values: [BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hashesOfCollateralToken",
     values: [string, BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "hashesOfMaker",
-    values: [string, BigNumberish, BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "hashesOfToToken",
+    functionFragment: "hashesOfTrader",
     values: [string, BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
@@ -79,15 +79,11 @@ interface OrderBookInterface extends ethers.utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "numberOfHashesOfFromToken",
+    functionFragment: "numberOfHashesOfCollateralToken",
     values: [string]
   ): string;
   encodeFunctionData(
-    functionFragment: "numberOfHashesOfMaker",
-    values: [string]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "numberOfHashesOfToToken",
+    functionFragment: "numberOfHashesOfTrader",
     values: [string]
   ): string;
   encodeFunctionData(
@@ -104,17 +100,13 @@ interface OrderBookInterface extends ethers.utils.Interface {
     functionFragment: "createOrder",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "getMaker", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "getTrader", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "hashesOfFromToken",
+    functionFragment: "hashesOfCollateralToken",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "hashesOfMaker",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "hashesOfToToken",
+    functionFragment: "hashesOfTrader",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -122,15 +114,11 @@ interface OrderBookInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "numberOfHashesOfFromToken",
+    functionFragment: "numberOfHashesOfCollateralToken",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "numberOfHashesOfMaker",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "numberOfHashesOfToToken",
+    functionFragment: "numberOfHashesOfTrader",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -147,7 +135,7 @@ interface OrderBookInterface extends ethers.utils.Interface {
 
 export type OrderCreatedEvent = TypedEvent<[string] & { hash: string }>;
 
-export class OrderBook extends BaseContract {
+export class OrderBookMargin extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
@@ -188,7 +176,7 @@ export class OrderBook extends BaseContract {
     toBlock?: string | number | undefined
   ): Promise<Array<TypedEvent<EventArgsArray & EventArgsObject>>>;
 
-  interface: OrderBookInterface;
+  interface: OrderBookMarginInterface;
 
   functions: {
     DOMAIN_SEPARATOR(overrides?: CallOverrides): Promise<[string]>;
@@ -201,14 +189,17 @@ export class OrderBook extends BaseContract {
 
     createOrder(
       order: {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumberish;
-        amountOutMin: BigNumberish;
-        recipient: string;
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
         deadline: BigNumberish;
-        created: BigNumberish;
+        createdTimestamp: BigNumberish;
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
@@ -216,27 +207,20 @@ export class OrderBook extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
-    getMaker(
+    getTrader(
       hash: BytesLike,
       overrides?: CallOverrides
-    ): Promise<[string] & { maker: string }>;
+    ): Promise<[string] & { trader: string }>;
 
-    hashesOfFromToken(
-      fromToken: string,
+    hashesOfCollateralToken(
+      collateralToken: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
     ): Promise<[string[]]>;
 
-    hashesOfMaker(
-      maker: string,
-      page: BigNumberish,
-      limit: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<[string[]]>;
-
-    hashesOfToToken(
-      toToken: string,
+    hashesOfTrader(
+      trader: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
@@ -244,18 +228,13 @@ export class OrderBook extends BaseContract {
 
     numberOfAllHashes(overrides?: CallOverrides): Promise<[BigNumber]>;
 
-    numberOfHashesOfFromToken(
-      fromToken: string,
+    numberOfHashesOfCollateralToken(
+      collateralToken: string,
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
-    numberOfHashesOfMaker(
-      maker: string,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
-
-    numberOfHashesOfToToken(
-      toToken: string,
+    numberOfHashesOfTrader(
+      trader: string,
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
@@ -265,9 +244,12 @@ export class OrderBook extends BaseContract {
     ): Promise<
       [
         string,
-        string,
+        BigNumber,
         string,
         BigNumber,
+        BigNumber,
+        string,
+        string,
         BigNumber,
         string,
         BigNumber,
@@ -276,14 +258,17 @@ export class OrderBook extends BaseContract {
         string,
         string
       ] & {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumber;
-        amountOutMin: BigNumber;
-        recipient: string;
+        loanId: string;
+        leverageAmount: BigNumber;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumber;
+        collateralTokenSent: BigNumber;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumber;
+        loanDataBytes: string;
         deadline: BigNumber;
-        created: BigNumber;
+        createdTimestamp: BigNumber;
         v: number;
         r: string;
         s: string;
@@ -301,14 +286,17 @@ export class OrderBook extends BaseContract {
 
   createOrder(
     order: {
-      maker: string;
-      fromToken: string;
-      toToken: string;
-      amountIn: BigNumberish;
-      amountOutMin: BigNumberish;
-      recipient: string;
+      loanId: BytesLike;
+      leverageAmount: BigNumberish;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumberish;
+      collateralTokenSent: BigNumberish;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumberish;
+      loanDataBytes: BytesLike;
       deadline: BigNumberish;
-      created: BigNumberish;
+      createdTimestamp: BigNumberish;
       v: BigNumberish;
       r: BytesLike;
       s: BytesLike;
@@ -316,24 +304,17 @@ export class OrderBook extends BaseContract {
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
-  getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
+  getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
-  hashesOfFromToken(
-    fromToken: string,
+  hashesOfCollateralToken(
+    collateralToken: string,
     page: BigNumberish,
     limit: BigNumberish,
     overrides?: CallOverrides
   ): Promise<string[]>;
 
-  hashesOfMaker(
-    maker: string,
-    page: BigNumberish,
-    limit: BigNumberish,
-    overrides?: CallOverrides
-  ): Promise<string[]>;
-
-  hashesOfToToken(
-    toToken: string,
+  hashesOfTrader(
+    trader: string,
     page: BigNumberish,
     limit: BigNumberish,
     overrides?: CallOverrides
@@ -341,18 +322,13 @@ export class OrderBook extends BaseContract {
 
   numberOfAllHashes(overrides?: CallOverrides): Promise<BigNumber>;
 
-  numberOfHashesOfFromToken(
-    fromToken: string,
+  numberOfHashesOfCollateralToken(
+    collateralToken: string,
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
-  numberOfHashesOfMaker(
-    maker: string,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  numberOfHashesOfToToken(
-    toToken: string,
+  numberOfHashesOfTrader(
+    trader: string,
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
@@ -362,9 +338,12 @@ export class OrderBook extends BaseContract {
   ): Promise<
     [
       string,
-      string,
+      BigNumber,
       string,
       BigNumber,
+      BigNumber,
+      string,
+      string,
       BigNumber,
       string,
       BigNumber,
@@ -373,14 +352,17 @@ export class OrderBook extends BaseContract {
       string,
       string
     ] & {
-      maker: string;
-      fromToken: string;
-      toToken: string;
-      amountIn: BigNumber;
-      amountOutMin: BigNumber;
-      recipient: string;
+      loanId: string;
+      leverageAmount: BigNumber;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumber;
+      collateralTokenSent: BigNumber;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumber;
+      loanDataBytes: string;
       deadline: BigNumber;
-      created: BigNumber;
+      createdTimestamp: BigNumber;
       v: number;
       r: string;
       s: string;
@@ -398,14 +380,17 @@ export class OrderBook extends BaseContract {
 
     createOrder(
       order: {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumberish;
-        amountOutMin: BigNumberish;
-        recipient: string;
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
         deadline: BigNumberish;
-        created: BigNumberish;
+        createdTimestamp: BigNumberish;
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
@@ -413,24 +398,17 @@ export class OrderBook extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
-    getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
+    getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
-    hashesOfFromToken(
-      fromToken: string,
+    hashesOfCollateralToken(
+      collateralToken: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
     ): Promise<string[]>;
 
-    hashesOfMaker(
-      maker: string,
-      page: BigNumberish,
-      limit: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<string[]>;
-
-    hashesOfToToken(
-      toToken: string,
+    hashesOfTrader(
+      trader: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
@@ -438,18 +416,13 @@ export class OrderBook extends BaseContract {
 
     numberOfAllHashes(overrides?: CallOverrides): Promise<BigNumber>;
 
-    numberOfHashesOfFromToken(
-      fromToken: string,
+    numberOfHashesOfCollateralToken(
+      collateralToken: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    numberOfHashesOfMaker(
-      maker: string,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    numberOfHashesOfToToken(
-      toToken: string,
+    numberOfHashesOfTrader(
+      trader: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -459,9 +432,12 @@ export class OrderBook extends BaseContract {
     ): Promise<
       [
         string,
-        string,
+        BigNumber,
         string,
         BigNumber,
+        BigNumber,
+        string,
+        string,
         BigNumber,
         string,
         BigNumber,
@@ -470,14 +446,17 @@ export class OrderBook extends BaseContract {
         string,
         string
       ] & {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumber;
-        amountOutMin: BigNumber;
-        recipient: string;
+        loanId: string;
+        leverageAmount: BigNumber;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumber;
+        collateralTokenSent: BigNumber;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumber;
+        loanDataBytes: string;
         deadline: BigNumber;
-        created: BigNumber;
+        createdTimestamp: BigNumber;
         v: number;
         r: string;
         s: string;
@@ -506,14 +485,17 @@ export class OrderBook extends BaseContract {
 
     createOrder(
       order: {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumberish;
-        amountOutMin: BigNumberish;
-        recipient: string;
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
         deadline: BigNumberish;
-        created: BigNumberish;
+        createdTimestamp: BigNumberish;
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
@@ -521,24 +503,17 @@ export class OrderBook extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
-    getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<BigNumber>;
+    getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<BigNumber>;
 
-    hashesOfFromToken(
-      fromToken: string,
+    hashesOfCollateralToken(
+      collateralToken: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    hashesOfMaker(
-      maker: string,
-      page: BigNumberish,
-      limit: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    hashesOfToToken(
-      toToken: string,
+    hashesOfTrader(
+      trader: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
@@ -546,18 +521,13 @@ export class OrderBook extends BaseContract {
 
     numberOfAllHashes(overrides?: CallOverrides): Promise<BigNumber>;
 
-    numberOfHashesOfFromToken(
-      fromToken: string,
+    numberOfHashesOfCollateralToken(
+      collateralToken: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
-    numberOfHashesOfMaker(
-      maker: string,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    numberOfHashesOfToToken(
-      toToken: string,
+    numberOfHashesOfTrader(
+      trader: string,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -575,14 +545,17 @@ export class OrderBook extends BaseContract {
 
     createOrder(
       order: {
-        maker: string;
-        fromToken: string;
-        toToken: string;
-        amountIn: BigNumberish;
-        amountOutMin: BigNumberish;
-        recipient: string;
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
         deadline: BigNumberish;
-        created: BigNumberish;
+        createdTimestamp: BigNumberish;
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
@@ -590,27 +563,20 @@ export class OrderBook extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
-    getMaker(
+    getTrader(
       hash: BytesLike,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    hashesOfFromToken(
-      fromToken: string,
+    hashesOfCollateralToken(
+      collateralToken: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    hashesOfMaker(
-      maker: string,
-      page: BigNumberish,
-      limit: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    hashesOfToToken(
-      toToken: string,
+    hashesOfTrader(
+      trader: string,
       page: BigNumberish,
       limit: BigNumberish,
       overrides?: CallOverrides
@@ -618,18 +584,13 @@ export class OrderBook extends BaseContract {
 
     numberOfAllHashes(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    numberOfHashesOfFromToken(
-      fromToken: string,
+    numberOfHashesOfCollateralToken(
+      collateralToken: string,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
-    numberOfHashesOfMaker(
-      maker: string,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    numberOfHashesOfToToken(
-      toToken: string,
+    numberOfHashesOfTrader(
+      trader: string,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 

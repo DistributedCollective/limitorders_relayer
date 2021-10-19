@@ -124,11 +124,12 @@ class Executor {
                     pairs,
                     fromToken,
                     toToken,
-                    deductFee(order.amountIn).toString()
+                    order.amountIn.toString()
                 );
                 if (trade) {
                     const tradeAmountOutMin = trade.minimumAmountOut(new Percent("0"));
-                    if (deductFee(order.amountOutMin).lt(tradeAmountOutMin.raw.toString())) {
+                    // console.log(Number(order.amountOutMin), ' -> trade ', Number(tradeAmountOutMin.raw), Number(order.amountOutMin) < Number(tradeAmountOutMin.raw))
+                    if (order.amountOutMin.lt(tradeAmountOutMin.raw.toString())) {
                         executables.push({
                             ...order,
                             trade

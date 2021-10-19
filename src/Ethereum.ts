@@ -9,8 +9,8 @@ class Ethereum {
 
     private constructor(chainId: number, privateKey: string) {
         //this.provider = new ethers.providers.AlchemyProvider(chainId, apiKey);
-        //this.provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-         this.provider = new ethers.providers.JsonRpcProvider("https://testnet.sovryn.app/rpc");
+        this.provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+        // this.provider = new ethers.providers.JsonRpcProvider("http://3.141.186.36:4444");
         this.wallet = new ethers.Wallet(privateKey, this.provider);
     }
 }

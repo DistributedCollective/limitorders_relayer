@@ -1,5 +1,5 @@
-import OrderBook from "./deployments/rsktestnet/OrderBook.json";
-import Settlement from "./deployments/rsktestnet/Settlement.json";
+import OrderBook from "./deployments/localhost/OrderBook.json";
+import Settlement from "./deployments/localhost/Settlement.json";
 import { ethers } from "ethers";
 import { OrderBookFactory, SettlementFactory } from "./contracts";
 import Order from "./types/Order";
