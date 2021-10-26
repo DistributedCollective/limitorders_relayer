@@ -8,13 +8,13 @@ import {
     Currency,
     Route,
 } from "@sushiswap/sdk";
-import { address } from "./deployments/localhost/Settlement.json";
 import * as CSwap from "./deployments/localhost/TestSovrynSwap.json";
 import { Contract, ethers } from "ethers";
 import Order from "./types/Order";
 import Log from "./Log";
 import { SettlementFactory } from "./contracts";
-import { fromToken } from "./types/TokenEntry";
+import MarginOrder from "./types/MarginOrder";
+import config from "./config";
 
 export type OnOrderFilled = (
     hash: string,
@@ -31,7 +31,7 @@ const deductFee = (amount: ethers.BigNumber) => {
 };
 
 const argsForOrder = async (order: Order, signer: ethers.Signer) => {
-    const contract = SettlementFactory.connect(address, signer);
+    const contract = SettlementFactory.connect(config.contracts.settlement, signer);
     const arg = {
         order,
         amountToFillIn: order.amountIn,
@@ -53,7 +53,7 @@ const equalsCurrency = (currency1: Currency, currency2: Currency) => {
 }
 
 const getTrade = async (provider, pairs: Pair[], tokenIn: Token, tokenOut: Token, amountIn: string): Promise<Trade> => {
-    const swapContract = new Contract(CSwap.address, CSwap.abi, provider);
+    const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, provider);
     let bestPair, bestAmountOut;
     for (let i = 0; i < pairs.length; i++) {
         const { token0, token1 } = pairs[i];
@@ -86,6 +86,7 @@ const getTrade = async (provider, pairs: Pair[], tokenIn: Token, tokenOut: Token
 
 class Executor {
     pendingOrders: { [orderHash: string]: ethers.ContractTransaction } = {};
+    pendingMarginOrders: { [orderHash: string]: boolean } = {};
     provider: ethers.providers.BaseProvider;
 
     constructor(provider: ethers.providers.BaseProvider) {
@@ -93,13 +94,18 @@ class Executor {
     }
 
     watch(onOrderFilled: OnOrderFilled) {
-        const settlement = SettlementFactory.connect(address, this.provider);
+        const settlement = SettlementFactory.connect(config.contracts.settlement, this.provider);
         settlement.on("OrderFilled", onOrderFilled);
     }
 
-    async filledAmountIn(order: Order) {
-        const settlement = SettlementFactory.connect(address, this.provider);
-        return await settlement.filledAmountInOfHash(order.hash);
+    watchMargin(onOrderFilled: OnOrderFilled) {
+        const settlement = SettlementFactory.connect(config.contracts.settlement, this.provider);
+        settlement.on("MarginOrderFilled", onOrderFilled);
+    }
+
+    async filledAmountIn(hash: string) {
+        const settlement = SettlementFactory.connect(config.contracts.settlement, this.provider);
+        return await settlement.filledAmountInOfHash(hash);
     }
 
     async match(tokens: Token[], pairs: Pair[], orders: Order[], timeout: number) {
@@ -108,17 +114,8 @@ class Executor {
         for (const order of orders) {
             const fromToken = findToken(tokens, order.fromToken);
             const toToken = findToken(tokens, order.toToken);
-            const filledAmountIn = await this.filledAmountIn(order);
+            const filledAmountIn = await this.filledAmountIn(order.hash);
             if (fromToken && toToken && order.deadline.toNumber() * 1000 >= now && filledAmountIn.lt(order.amountIn)) {
-                // const trade = Trade.bestTradeExactIn(
-                //     pairs,
-                //     new TokenAmount(fromToken, deductFee(order.amountIn).toString()),
-                //     toToken,
-                //     {
-                //         maxNumResults: 1,
-                //         maxHops: 3
-                //     }
-                // )[0];
                 const trade = await getTrade(
                     this.provider,
                     pairs,
@@ -128,7 +125,6 @@ class Executor {
                 );
                 if (trade) {
                     const tradeAmountOutMin = trade.minimumAmountOut(new Percent("0"));
-                    // console.log(Number(order.amountOutMin), ' -> trade ', Number(tradeAmountOutMin.raw), Number(order.amountOutMin) < Number(tradeAmountOutMin.raw))
                     if (order.amountOutMin.lt(tradeAmountOutMin.raw.toString())) {
                         executables.push({
                             ...order,
@@ -143,7 +139,7 @@ class Executor {
     }
 
     async fillOrders(orders: Order[], signer: ethers.Signer) {
-        const contract = SettlementFactory.connect(address, signer);
+        const contract = SettlementFactory.connect(config.contracts.settlement, signer);
         const args = (
             await Promise.all(
                 orders
@@ -160,7 +156,7 @@ class Executor {
             console.log('signer', await signer.getAddress())
             const gasLimit = await contract.estimateGas.fillOrders(args);
             const gasPrice = await signer.getGasPrice();
-            console.log('gas limit %s, price %s', Number(gasLimit), Number(gasPrice))
+            // console.log('gas limit %s, price %s', Number(gasLimit), Number(gasPrice))
             const tx = await contract.fillOrders(args, {
                 gasLimit: gasLimit.mul(120).div(100),
                 gasPrice: gasPrice.mul(120).div(100)
@@ -170,6 +166,31 @@ class Executor {
             });
             tx.wait().then(() => {
                 args.forEach(arg => delete this.pendingOrders[arg.order.hash]);
+            });
+            Log.d("  tx hash: ", tx.hash);
+        }
+    }
+
+    async fillMarginOrders(orders: MarginOrder[], signer: ethers.Signer) {
+        const contract = SettlementFactory.connect(config.contracts.settlement, signer);
+        const args = orders
+            .filter(order => !this.pendingMarginOrders[order.hash])
+            .map(order => ({ order }));
+
+        if (args.length > 0) {
+            Log.d("filling margin orders...");
+            args.forEach(arg => {
+                Log.d("  " + arg.order.hash);
+                this.pendingMarginOrders[arg.order.hash] = true;
+            });
+            const gasLimit = await contract.estimateGas.fillMarginOrders(args);
+            const gasPrice = await signer.getGasPrice();
+            const tx = await contract.fillMarginOrders(args, {
+                gasLimit: gasLimit.mul(120).div(100),
+                gasPrice: gasPrice.mul(120).div(100)
+            });
+            tx.wait().then(() => {
+                args.forEach(arg => delete this.pendingMarginOrders[arg.order.hash]);
             });
             Log.d("  tx hash: ", tx.hash);
         }

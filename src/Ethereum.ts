@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import config from "./config";
 
 class Ethereum {
     provider: ethers.providers.JsonRpcProvider;
@@ -9,8 +10,7 @@ class Ethereum {
 
     private constructor(chainId: number, privateKey: string) {
         //this.provider = new ethers.providers.AlchemyProvider(chainId, apiKey);
-        this.provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
-        // this.provider = new ethers.providers.JsonRpcProvider("http://3.141.186.36:4444");
+        this.provider = new ethers.providers.JsonRpcProvider(config.rpcNode);
         this.wallet = new ethers.Wallet(privateKey, this.provider);
     }
 }

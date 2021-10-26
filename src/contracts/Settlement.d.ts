@@ -18,7 +18,7 @@ import {
 import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
-import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
+import type { TypedEventFilter, TypedEvent } from "./common";
 
 interface SettlementInterface extends ethers.utils.Interface {
   functions: {
@@ -30,8 +30,11 @@ interface SettlementInterface extends ethers.utils.Interface {
     "balanceOf(address)": FunctionFragment;
     "cancelOrder(bytes32)": FunctionFragment;
     "canceledOfHash(bytes32)": FunctionFragment;
+    "checkCanceledHashes(bytes32[])": FunctionFragment;
+    "checkFilledAmountHashes(bytes32[])": FunctionFragment;
     "deposit(address)": FunctionFragment;
     "fillMarginOrder(((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32)))": FunctionFragment;
+    "fillMarginOrders(tuple[])": FunctionFragment;
     "fillOrder(((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256,address[]))": FunctionFragment;
     "fillOrders(tuple[])": FunctionFragment;
     "filledAmountInOfHash(bytes32)": FunctionFragment;
@@ -71,6 +74,14 @@ interface SettlementInterface extends ethers.utils.Interface {
     functionFragment: "canceledOfHash",
     values: [BytesLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "checkCanceledHashes",
+    values: [BytesLike[]]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "checkFilledAmountHashes",
+    values: [BytesLike[]]
+  ): string;
   encodeFunctionData(functionFragment: "deposit", values: [string]): string;
   encodeFunctionData(
     functionFragment: "fillMarginOrder",
@@ -93,6 +104,29 @@ interface SettlementInterface extends ethers.utils.Interface {
           s: BytesLike;
         };
       }
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "fillMarginOrders",
+    values: [
+      {
+        order: {
+          loanId: BytesLike;
+          leverageAmount: BigNumberish;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumberish;
+          collateralTokenSent: BigNumberish;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumberish;
+          loanDataBytes: BytesLike;
+          deadline: BigNumberish;
+          createdTimestamp: BigNumberish;
+          v: BigNumberish;
+          r: BytesLike;
+          s: BytesLike;
+        };
+      }[]
     ]
   ): string;
   encodeFunctionData(
@@ -193,9 +227,21 @@ interface SettlementInterface extends ethers.utils.Interface {
     functionFragment: "canceledOfHash",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "checkCanceledHashes",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "checkFilledAmountHashes",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "deposit", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "fillMarginOrder",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "fillMarginOrders",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "fillOrder", data: BytesLike): Result;
@@ -226,6 +272,7 @@ interface SettlementInterface extends ethers.utils.Interface {
     "Deposit(address,uint256)": EventFragment;
     "FeeSplitTransferred(bytes32,address,uint256)": EventFragment;
     "FeeTransferred(bytes32,address,uint256)": EventFragment;
+    "MarginOrderCanceled(bytes32)": EventFragment;
     "MarginOrderFilled(bytes32,uint256,uint256)": EventFragment;
     "MarginTrade(address,address,uint256,uint256,uint256,uint256,address)": EventFragment;
     "OrderCanceled(bytes32)": EventFragment;
@@ -237,6 +284,7 @@ interface SettlementInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "Deposit"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "FeeSplitTransferred"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "FeeTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MarginOrderCanceled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "MarginOrderFilled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "MarginTrade"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OrderCanceled"): EventFragment;
@@ -264,6 +312,8 @@ export type FeeTransferredEvent = TypedEvent<
     amount: BigNumber;
   }
 >;
+
+export type MarginOrderCanceledEvent = TypedEvent<[string] & { hash: string }>;
 
 export type MarginOrderFilledEvent = TypedEvent<
   [string, BigNumber, BigNumber] & {
@@ -314,28 +364,12 @@ export class Settlement extends BaseContract {
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  listeners<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter?: TypedEventFilter<EventArgsArray, EventArgsObject>
-  ): Array<TypedListener<EventArgsArray, EventArgsObject>>;
-  off<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
-    listener: TypedListener<EventArgsArray, EventArgsObject>
-  ): this;
-  on<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
-    listener: TypedListener<EventArgsArray, EventArgsObject>
-  ): this;
-  once<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
-    listener: TypedListener<EventArgsArray, EventArgsObject>
-  ): this;
-  removeListener<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
-    listener: TypedListener<EventArgsArray, EventArgsObject>
-  ): this;
-  removeAllListeners<EventArgsArray extends Array<any>, EventArgsObject>(
-    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>
-  ): this;
+  listeners(eventName?: string): Array<Listener>;
+  off(eventName: string, listener: Listener): this;
+  on(eventName: string, listener: Listener): this;
+  once(eventName: string, listener: Listener): this;
+  removeListener(eventName: string, listener: Listener): this;
+  removeAllListeners(eventName?: string): this;
 
   listeners(eventName?: string): Array<Listener>;
   off(eventName: string, listener: Listener): this;
@@ -375,6 +409,24 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
+    checkCanceledHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<
+      [([string, boolean] & { hash: string; canceled: boolean })[]] & {
+        result: ([string, boolean] & { hash: string; canceled: boolean })[];
+      }
+    >;
+
+    checkFilledAmountHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<
+      [([string, BigNumber] & { hash: string; amount: BigNumber })[]] & {
+        result: ([string, BigNumber] & { hash: string; amount: BigNumber })[];
+      }
+    >;
+
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -399,6 +451,28 @@ export class Settlement extends BaseContract {
           s: BytesLike;
         };
       },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
+    fillMarginOrders(
+      args: {
+        order: {
+          loanId: BytesLike;
+          leverageAmount: BigNumberish;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumberish;
+          collateralTokenSent: BigNumberish;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumberish;
+          loanDataBytes: BytesLike;
+          deadline: BigNumberish;
+          createdTimestamp: BigNumberish;
+          v: BigNumberish;
+          r: BytesLike;
+          s: BytesLike;
+        };
+      }[],
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -482,6 +556,16 @@ export class Settlement extends BaseContract {
 
   canceledOfHash(arg0: BytesLike, overrides?: CallOverrides): Promise<boolean>;
 
+  checkCanceledHashes(
+    hashes: BytesLike[],
+    overrides?: CallOverrides
+  ): Promise<([string, boolean] & { hash: string; canceled: boolean })[]>;
+
+  checkFilledAmountHashes(
+    hashes: BytesLike[],
+    overrides?: CallOverrides
+  ): Promise<([string, BigNumber] & { hash: string; amount: BigNumber })[]>;
+
   deposit(
     to: string,
     overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -506,6 +590,28 @@ export class Settlement extends BaseContract {
         s: BytesLike;
       };
     },
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
+  fillMarginOrders(
+    args: {
+      order: {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      };
+    }[],
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -589,6 +695,16 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    checkCanceledHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<([string, boolean] & { hash: string; canceled: boolean })[]>;
+
+    checkFilledAmountHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<([string, BigNumber] & { hash: string; amount: BigNumber })[]>;
+
     deposit(to: string, overrides?: CallOverrides): Promise<void>;
 
     fillMarginOrder(
@@ -615,6 +731,33 @@ export class Settlement extends BaseContract {
       [BigNumber, BigNumber] & {
         principalAmount: BigNumber;
         collateralAmount: BigNumber;
+      }
+    >;
+
+    fillMarginOrders(
+      args: {
+        order: {
+          loanId: BytesLike;
+          leverageAmount: BigNumberish;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumberish;
+          collateralTokenSent: BigNumberish;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumberish;
+          loanDataBytes: BytesLike;
+          deadline: BigNumberish;
+          createdTimestamp: BigNumberish;
+          v: BigNumberish;
+          r: BytesLike;
+          s: BytesLike;
+        };
+      }[],
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber[], BigNumber[]] & {
+        principalAmounts: BigNumber[];
+        collateralAmounts: BigNumber[];
       }
     >;
 
@@ -722,6 +865,14 @@ export class Settlement extends BaseContract {
       [string, string, BigNumber],
       { hash: string; recipient: string; amount: BigNumber }
     >;
+
+    "MarginOrderCanceled(bytes32)"(
+      hash?: BytesLike | null
+    ): TypedEventFilter<[string], { hash: string }>;
+
+    MarginOrderCanceled(
+      hash?: BytesLike | null
+    ): TypedEventFilter<[string], { hash: string }>;
 
     "MarginOrderFilled(bytes32,uint256,uint256)"(
       hash?: BytesLike | null,
@@ -883,6 +1034,16 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    checkCanceledHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    checkFilledAmountHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -907,6 +1068,28 @@ export class Settlement extends BaseContract {
           s: BytesLike;
         };
       },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    fillMarginOrders(
+      args: {
+        order: {
+          loanId: BytesLike;
+          leverageAmount: BigNumberish;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumberish;
+          collateralTokenSent: BigNumberish;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumberish;
+          loanDataBytes: BytesLike;
+          deadline: BigNumberish;
+          createdTimestamp: BigNumberish;
+          v: BigNumberish;
+          r: BytesLike;
+          s: BytesLike;
+        };
+      }[],
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -997,6 +1180,16 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    checkCanceledHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    checkFilledAmountHashes(
+      hashes: BytesLike[],
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -1021,6 +1214,28 @@ export class Settlement extends BaseContract {
           s: BytesLike;
         };
       },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    fillMarginOrders(
+      args: {
+        order: {
+          loanId: BytesLike;
+          leverageAmount: BigNumberish;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumberish;
+          collateralTokenSent: BigNumberish;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumberish;
+          loanDataBytes: BytesLike;
+          deadline: BigNumberish;
+          createdTimestamp: BigNumberish;
+          v: BigNumberish;
+          r: BytesLike;
+          s: BytesLike;
+        };
+      }[],
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 

@@ -10,9 +10,12 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "tsc",
-    "start": "yarn run build && node dist/index.js"
+    "start": "yarn run build && node dist/index.js --local",
+    "start:testnet": "yarn run build && node dist/index.js --testnet"
   },
   "dependencies": {
+    "@ethersproject/abi": "^5.5.0",
+    "@ethersproject/networks": "^5.5.0",
     "@sushiswap/sdk": "^3.0.1",
     "@sushiswap/settlement": "^0.12.0",
     "dotenv": "^8.2.0",

@@ -3,3 +3,4 @@
 export * from "./OrderBookFactory";
 export * from "./SettlementFactory";
 export * from "./UniswapV2PairFactory";
+export * from "./OrderBookMarginFactory";

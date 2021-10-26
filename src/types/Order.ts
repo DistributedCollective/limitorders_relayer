@@ -10,6 +10,7 @@ interface Order {
     amountOutMin: ethers.BigNumber;
     recipient: string;
     deadline: ethers.BigNumber;
+    created: ethers.BigNumber;
     v: number;
     r: string;
     s: string;

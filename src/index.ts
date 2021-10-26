@@ -9,13 +9,22 @@ import Executor from "./Executor";
 
 import { Fetcher } from "@sushiswap/sdk";
 import { ethers } from "ethers";
+import MarginOrders from './MarginOrders';
 
 
 const mainnet = Ethereum.Mainnet;
 const kovan = Ethereum.Kovan;
 
 // tslint:disable-next-line:max-func-body-length
+
 const main = async () => {
+    await Promise.all([
+        processLimitOrderes(),
+        processMarginOrders(),
+    ]);
+};
+
+const processLimitOrderes = async () => {
     Log.d("fetching pairs...");
     let { tokens, pairs } = await updateTokensAndPairs(mainnet.provider);
 
@@ -44,7 +53,7 @@ const main = async () => {
     const executor = new Executor(mainnet.provider);
     Log.d("listening to new blocks...");
     mainnet.provider.on("block", async blockNumber => {
-        Log.d("block: " + blockNumber);
+        // Log.d("block: " + blockNumber);
         // every 12 hours
         if (blockNumber % 2880 === 0) {
             const latest = await updateTokensAndPairs(mainnet.provider);
@@ -78,8 +87,57 @@ const main = async () => {
         const index = orders.findIndex(o => o.hash === hash);
         if (index >= 0) {
             const order = orders[index];
-            const filledAmountIn = await executor.filledAmountIn(order);
+            const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
+                orders.splice(index, 1);
+            }
+        }
+    });
+};
+
+const processMarginOrders = async () => {
+    Log.d("fetching margin orders...");
+    const orders = await MarginOrders.fetch(mainnet.provider, kovan.provider);
+    Log.d("found " + orders.length + " margin orders");
+    orders.forEach(order => {
+        Log.d("  " + order.hash);
+    });
+    MarginOrders.watch(
+        async hash => {
+            Log.d("margin order created: " + hash);
+            orders.push(await MarginOrders.fetchOrder(hash, kovan.provider));
+        },
+        hash => {
+            Log.d("margin order cancelled: " + hash);
+            const index = orders.findIndex(order => order.hash === hash);
+            if (index >= 0) {
+                orders.splice(index, 1);
+            }
+        },
+        mainnet.provider,
+        kovan.provider
+    );
+
+    const executor = new Executor(mainnet.provider);
+    Log.d("listening to new blocks...");
+    mainnet.provider.on("block", async blockNumber => {
+        Log.d("block: " + blockNumber);
+        // every 1 minute
+        if (blockNumber % 4 === 0) {
+            try {
+                await executor.fillMarginOrders(orders, mainnet.wallet);
+            } catch (e) {
+                Log.e("error: " + e.reason || e.message || e.toString());
+            }
+        }
+    });
+    executor.watchMargin(async hash => {
+        Log.d("order filled: " + hash);
+        const index = orders.findIndex(o => o.hash === hash);
+        if (index >= 0) {
+            const order = orders[index];
+            const filledAmountIn = await executor.filledAmountIn(order.hash);
+            if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
                 orders.splice(index, 1);
             }
         }
