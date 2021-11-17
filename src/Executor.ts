@@ -32,10 +32,15 @@ const deductFee = (amount: ethers.BigNumber) => {
 
 const argsForOrder = async (order: Order, signer: ethers.Signer) => {
     const contract = SettlementFactory.connect(config.contracts.settlement, signer);
+    const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, signer);
+    const fromToken = order.trade.route.path[0].address;
+    const toToken = order.trade.route.path[order.trade.route.path.length - 1].address;
+    const path = await swapContract.conversionPath(fromToken, toToken);
+    console.log(path);
     const arg = {
         order,
         amountToFillIn: order.amountIn,
-        path: order.trade.route.path.map(token => token.address)
+        path: path
     };
     try {
         const gasLimit = await contract.estimateGas.fillOrder(arg);
