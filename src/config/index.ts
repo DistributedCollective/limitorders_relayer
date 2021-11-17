@@ -18,6 +18,7 @@ interface Config {
         orderBookMargin: string;
         sovrynSwap: string;
     };
+    tokens: [];
 }
 
 console.log(config)

@@ -23,7 +23,7 @@ export type OnOrderFilled = (
 ) => Promise<void> | void;
 
 const findToken = (tokens: Token[], tokenAddress: string) => {
-    return tokens.find(token => token.address === tokenAddress);
+    return tokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase());
 };
 
 const deductFee = (amount: ethers.BigNumber) => {
@@ -60,13 +60,15 @@ const getTrade = async (provider, pairs: Pair[], tokenIn: Token, tokenOut: Token
         if (equalsCurrency(token0, tokenIn) && equalsCurrency(token1, tokenOut) ||
             equalsCurrency(token0, tokenOut) && equalsCurrency(token1, tokenIn)
         ) {
-            const amountOut = await swapContract.rateByPath(
-                [tokenIn.address, tokenOut.address],
-                amountIn
-            );
-            if (bestPair == null || amountOut < bestAmountOut) {
-                bestPair = pairs[i];
-                bestAmountOut = amountOut;
+            try {
+                const path = await swapContract.conversionPath(tokenIn.address, tokenOut.address);
+                const amountOut = await swapContract.rateByPath(path, amountIn);
+                if (bestPair == null || amountOut < bestAmountOut) {
+                    bestPair = pairs[i];
+                    bestAmountOut = amountOut;
+                }
+            } catch (error) {
+                console.log(error);
             }
         }
     }

@@ -1,0 +1,18 @@
+{
+    "tokens": [
+        {
+            "address": "0x6a9A07972D07e58F0daf5122d11E069288A375fb",
+            "chainId": 31,
+            "name": "SOV",
+            "symbol": "SOV",
+            "decimals": 18
+        },
+        {
+            "address": "0x74858FE37d391f81F89472e1D8BC8Ef9CF67B3b1",
+            "chainId": 31,
+            "name": "XUSD",
+            "symbol": "XUSD",
+            "decimals": 18
+        }
+    ]
+}

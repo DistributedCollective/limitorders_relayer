@@ -4,6 +4,7 @@ import fetch from "node-fetch";
 import TokenEntry, { toToken } from "./types/TokenEntry";
 import { UniswapV2PairFactory } from "./contracts";
 import { UniswapV2Pair } from "./contracts/UniswapV2Pair";
+import config from "./config";
 
 export type OnSync = (pair: Pair) => Promise<void> | void;
 
@@ -24,7 +25,7 @@ class Pairs {
     static async fetch(provider: ethers.providers.BaseProvider) {
         // const res = await fetch("https://lite.sushiswap.fi/tokens.json");
         // const { tokens }: { tokens: TokenEntry[] } = await res.json();
-        const { tokens }: { tokens: TokenEntry[] } = require('../tokens.json');
+        const tokens: TokenEntry[]  = config.tokens;
         const tokenCombinations: [Token, Token][] = [];
         for (const entryA of tokens) {
             const tokenA = toToken(entryA);
