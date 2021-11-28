@@ -11,7 +11,8 @@
     "prebuild": "rimraf dist",
     "build": "tsc",
     "start": "yarn run build && node dist/index.js --local",
-    "start:testnet": "yarn run build && node dist/index.js --testnet"
+    "start:testnet": "yarn run build && node dist/index.js --testnet",
+    "dev": "ts-node src/index.ts --testnet"
   },
   "dependencies": {
     "@ethersproject/abi": "^5.5.0",

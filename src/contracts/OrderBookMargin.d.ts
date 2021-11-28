@@ -17,13 +17,14 @@ import {
 import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
-import type { TypedEventFilter, TypedEvent } from "./common";
+import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
 
 interface OrderBookMarginInterface extends ethers.utils.Interface {
   functions: {
     "DOMAIN_SEPARATOR()": FunctionFragment;
     "allHashes(uint256,uint256)": FunctionFragment;
     "createOrder((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
+    "getOrders(address,uint256,uint256)": FunctionFragment;
     "getTrader(bytes32)": FunctionFragment;
     "hashesOfCollateralToken(address,uint256,uint256)": FunctionFragment;
     "hashesOfTrader(address,uint256,uint256)": FunctionFragment;
@@ -63,6 +64,10 @@ interface OrderBookMarginInterface extends ethers.utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "getOrders",
+    values: [string, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getTrader",
     values: [BytesLike]
   ): string;
@@ -100,6 +105,7 @@ interface OrderBookMarginInterface extends ethers.utils.Interface {
     functionFragment: "createOrder",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "getOrders", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "getTrader", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "hashesOfCollateralToken",
@@ -127,24 +133,109 @@ interface OrderBookMarginInterface extends ethers.utils.Interface {
   ): Result;
 
   events: {
-    "OrderCreated(bytes32)": EventFragment;
+    "MarginOrderCreated(bytes32,tuple)": EventFragment;
   };
 
-  getEvent(nameOrSignatureOrTopic: "OrderCreated"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "MarginOrderCreated"): EventFragment;
 }
 
-export type OrderCreatedEvent = TypedEvent<[string] & { hash: string }>;
+export type MarginOrderCreatedEvent = TypedEvent<
+  [
+    string,
+    [
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      loanId: string;
+      leverageAmount: BigNumber;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumber;
+      collateralTokenSent: BigNumber;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumber;
+      loanDataBytes: string;
+      deadline: BigNumber;
+      createdTimestamp: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    }
+  ] & {
+    hash: string;
+    order: [
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      loanId: string;
+      leverageAmount: BigNumber;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumber;
+      collateralTokenSent: BigNumber;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumber;
+      loanDataBytes: string;
+      deadline: BigNumber;
+      createdTimestamp: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    };
+  }
+>;
 
 export class OrderBookMargin extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  on(event: EventFilter | string, listener: Listener): this;
-  once(event: EventFilter | string, listener: Listener): this;
-  addListener(eventName: EventFilter | string, listener: Listener): this;
-  removeAllListeners(eventName: EventFilter | string): this;
-  removeListener(eventName: any, listener: Listener): this;
+  listeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter?: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): Array<TypedListener<EventArgsArray, EventArgsObject>>;
+  off<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  on<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  once<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeListener<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeAllListeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): this;
 
   listeners(eventName?: string): Array<Listener>;
   off(eventName: string, listener: Listener): this;
@@ -189,6 +280,79 @@ export class OrderBookMargin extends BaseContract {
       },
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
+
+    getOrders(
+      trader: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      [
+        ([
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        })[]
+      ] & {
+        orders: ([
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        })[];
+      }
+    >;
 
     getTrader(
       hash: BytesLike,
@@ -287,6 +451,45 @@ export class OrderBookMargin extends BaseContract {
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  getOrders(
+    trader: string,
+    offset: BigNumberish,
+    limit: BigNumberish,
+    overrides?: CallOverrides
+  ): Promise<
+    ([
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      string,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      loanId: string;
+      leverageAmount: BigNumber;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumber;
+      collateralTokenSent: BigNumber;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumber;
+      loanDataBytes: string;
+      deadline: BigNumber;
+      createdTimestamp: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    })[]
+  >;
+
   getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
   hashesOfCollateralToken(
@@ -381,6 +584,45 @@ export class OrderBookMargin extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    getOrders(
+      trader: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      ([
+        string,
+        BigNumber,
+        string,
+        BigNumber,
+        BigNumber,
+        string,
+        string,
+        BigNumber,
+        string,
+        BigNumber,
+        BigNumber,
+        number,
+        string,
+        string
+      ] & {
+        loanId: string;
+        leverageAmount: BigNumber;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumber;
+        collateralTokenSent: BigNumber;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumber;
+        loanDataBytes: string;
+        deadline: BigNumber;
+        createdTimestamp: BigNumber;
+        v: number;
+        r: string;
+        s: string;
+      })[]
+    >;
+
     getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
     hashesOfCollateralToken(
@@ -448,13 +690,153 @@ export class OrderBookMargin extends BaseContract {
   };
 
   filters: {
-    "OrderCreated(bytes32)"(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+    "MarginOrderCreated(bytes32,tuple)"(
+      hash?: BytesLike | null,
+      order?: null
+    ): TypedEventFilter<
+      [
+        string,
+        [
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        }
+      ],
+      {
+        hash: string;
+        order: [
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        };
+      }
+    >;
 
-    OrderCreated(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+    MarginOrderCreated(
+      hash?: BytesLike | null,
+      order?: null
+    ): TypedEventFilter<
+      [
+        string,
+        [
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        }
+      ],
+      {
+        hash: string;
+        order: [
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          string,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          loanId: string;
+          leverageAmount: BigNumber;
+          loanTokenAddress: string;
+          loanTokenSent: BigNumber;
+          collateralTokenSent: BigNumber;
+          collateralTokenAddress: string;
+          trader: string;
+          minReturn: BigNumber;
+          loanDataBytes: string;
+          deadline: BigNumber;
+          createdTimestamp: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        };
+      }
+    >;
   };
 
   estimateGas: {
@@ -484,6 +866,13 @@ export class OrderBookMargin extends BaseContract {
         s: BytesLike;
       },
       overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    getOrders(
+      trader: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     getTrader(hash: BytesLike, overrides?: CallOverrides): Promise<BigNumber>;
@@ -544,6 +933,13 @@ export class OrderBookMargin extends BaseContract {
         s: BytesLike;
       },
       overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    getOrders(
+      trader: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     getTrader(

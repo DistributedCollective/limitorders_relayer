@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { OrderBookFactory, SettlementFactory } from "./contracts";
+import { OrderBook__factory, Settlement__factory } from "./contracts";
 import Order from "./types/Order";
 import config from "./config";
 
@@ -13,13 +13,13 @@ const BLOCKS_PER_DAY = 6500;
 class Orders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
         const fromBlock = (await provider.getBlockNumber()) - BLOCKS_PER_DAY;
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
+        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
         const filter = settlement.filters.OrderCanceled(null);
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
     }
 
     private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookFactory.connect(config.contracts.orderBook, kovanProvider);
+        const orderBook = OrderBook__factory.connect(config.contracts.orderBook, kovanProvider);
         const length = (await orderBook.numberOfAllHashes()).toNumber();
         const pages: number[] = [];
         for (let i = 0; i * LIMIT < length; i++) pages.push(i);
@@ -29,27 +29,32 @@ class Orders {
     }
 
     static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
-        const canceledHashes = await Orders.fetchCanceledHashes(provider);
-        const hashes = await Orders.fetchHashes(kovanProvider);
-        const now = Math.floor(Date.now() / 1000);
-        return (
-            await Promise.all(
-                hashes
-                    .filter(hash => !canceledHashes.includes(hash))
-                    .map(async hash => {
-                        const order = await this.fetchOrder(hash, kovanProvider);
-                        if (order.deadline.toNumber() < now) return null;
-                        const filledAmountIn = await settlement.filledAmountInOfHash(hash);
-                        if (order.amountIn.eq(filledAmountIn)) return null;
-                        return order;
-                    })
-            )
-        ).filter(order => !!order);
+        try {
+            const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+            const canceledHashes = await Orders.fetchCanceledHashes(provider);
+            const hashes = await Orders.fetchHashes(kovanProvider);
+            const now = Math.floor(Date.now() / 1000);
+            return (
+                await Promise.all(
+                    hashes
+                        .filter(hash => !canceledHashes.includes(hash))
+                        .map(async hash => {
+                            const order = await this.fetchOrder(hash, kovanProvider);
+                            if (order.deadline.toNumber() < now) return null;
+                            const filledAmountIn = await settlement.filledAmountInOfHash(hash);
+                            if (order.amountIn.eq(filledAmountIn)) return null;
+                            return order;
+                        })
+                )
+            ).filter(order => !!order);
+        } catch (e) {
+            console.log(e);
+            return [];
+        }
     }
 
     static async fetchOrder(hash: string, kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookFactory.connect(config.contracts.orderBook, kovanProvider);
+        const orderBook = OrderBook__factory.connect(config.contracts.orderBook, kovanProvider);
         const {
             maker,
             fromToken,
@@ -85,8 +90,8 @@ class Orders {
         provider: ethers.providers.BaseProvider,
         kovanProvider: ethers.providers.BaseProvider
     ) {
-        const orderBook = OrderBookFactory.connect(config.contracts.orderBook, kovanProvider);
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
+        const orderBook = OrderBook__factory.connect(config.contracts.orderBook, kovanProvider);
+        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
         orderBook.on("OrderCreated", onCreateOrder);
         settlement.on("OrderCanceled", onCancelOrder);
     }

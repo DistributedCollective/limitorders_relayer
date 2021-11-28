@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { OrderBookMarginFactory, SettlementFactory } from "./contracts";
+import { OrderBookMargin__factory, Settlement__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
 import config from "./config";
 
@@ -13,14 +13,14 @@ const BLOCKS_PER_DAY = 6500;
 class MarginOrders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
         const fromBlock = (await provider.getBlockNumber()) - BLOCKS_PER_DAY;
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
+        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
         const filter = settlement.filters.MarginOrderCanceled();
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
         // return await settlement.allCanceledHashes();
     }
 
     private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMarginFactory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
         const length = (await orderBook.numberOfAllHashes()).toNumber();
         const pages: number[] = [];
         for (let i = 0; i * LIMIT < length; i++) pages.push(i);
@@ -30,29 +30,34 @@ class MarginOrders {
     }
 
     static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
-        const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
-        // console.log(canceledHashes)
-        const hashes = await MarginOrders.fetchHashes(kovanProvider);
-        const now = Math.floor(Date.now() / 1000);
-        return (
-            await Promise.all(
-                hashes
-                    .filter(hash => !canceledHashes.includes(hash))
-                    .map(async hash => {
-                        const order = await this.fetchOrder(hash, kovanProvider);
-                        if (order.deadline.toNumber() < now) return null;
-                        const filledAmountIn = await settlement.filledAmountInOfHash(hash);
-                        // console.log(hash, Number(filledAmountIn));
-                        if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
-                        return order;
-                    })
-            )
-        ).filter(order => !!order);
+        try {
+            const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+            const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
+            // console.log(canceledHashes)
+            const hashes = await MarginOrders.fetchHashes(kovanProvider);
+            const now = Math.floor(Date.now() / 1000);
+            return (
+                await Promise.all(
+                    hashes
+                        .filter(hash => !canceledHashes.includes(hash))
+                        .map(async hash => {
+                            const order = await this.fetchOrder(hash, kovanProvider);
+                            if (order.deadline.toNumber() < now) return null;
+                            const filledAmountIn = await settlement.filledAmountInOfHash(hash);
+                            // console.log(hash, Number(filledAmountIn));
+                            if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
+                            return order;
+                        })
+                )
+            ).filter(order => !!order);
+        } catch (e) {
+            console.log(e);
+            return [];
+        }
     }
 
     static async fetchOrder(hash: string, kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMarginFactory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
         const {
             loanId,
             leverageAmount,
@@ -94,9 +99,9 @@ class MarginOrders {
         provider: ethers.providers.BaseProvider,
         kovanProvider: ethers.providers.BaseProvider
     ) {
-        const orderBook = OrderBookMarginFactory.connect(config.contracts.orderBookMargin, kovanProvider);
-        const settlement = SettlementFactory.connect(config.contracts.settlement, provider);
-        orderBook.on("OrderCreated", onCreateOrder);
+        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+        orderBook.on("MarginOrderCreated", onCreateOrder);
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
 }

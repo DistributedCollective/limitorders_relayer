@@ -61,7 +61,7 @@ const processLimitOrderes = async () => {
             pairs = latest.pairs;
         }
         // every 1 minute
-        if (blockNumber % 4 === 0) {
+        if (blockNumber % 2 === 0) {
             try {
                 const matched = await executor.match(tokens, pairs, orders, 10000);
                 Log.d("matched " + matched.length + " orders");
@@ -153,18 +153,6 @@ const updateTokensAndPairs = async (provider: ethers.providers.BaseProvider) => 
     Log.d("found " + pairs.length + " pairs");
     pairs.forEach(pair => {
         Log.d("  " + pair.liquidityToken.address);
-        Pairs.watch(
-            pair,
-            async syncedPair => {
-                const newPair = await Fetcher.fetchPairData(syncedPair.token0, syncedPair.token1, mainnet.provider);
-                const index = pairs.findIndex(p => p.liquidityToken.address === syncedPair.liquidityToken.address);
-                if (index >= 0) {
-                    pairs.splice(index, 1, newPair);
-                    Log.d("pair synced: " + syncedPair.liquidityToken.address);
-                }
-            },
-            mainnet.provider
-        );
     });
     return { tokens, pairs };
 };

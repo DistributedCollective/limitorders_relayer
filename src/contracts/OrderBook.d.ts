@@ -17,7 +17,7 @@ import {
 import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
-import type { TypedEventFilter, TypedEvent } from "./common";
+import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
 
 interface OrderBookInterface extends ethers.utils.Interface {
   functions: {
@@ -25,6 +25,7 @@ interface OrderBookInterface extends ethers.utils.Interface {
     "allHashes(uint256,uint256)": FunctionFragment;
     "createOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
     "getMaker(bytes32)": FunctionFragment;
+    "getOrders(address,uint256,uint256)": FunctionFragment;
     "hashesOfFromToken(address,uint256,uint256)": FunctionFragment;
     "hashesOfMaker(address,uint256,uint256)": FunctionFragment;
     "hashesOfToToken(address,uint256,uint256)": FunctionFragment;
@@ -62,6 +63,10 @@ interface OrderBookInterface extends ethers.utils.Interface {
     ]
   ): string;
   encodeFunctionData(functionFragment: "getMaker", values: [BytesLike]): string;
+  encodeFunctionData(
+    functionFragment: "getOrders",
+    values: [string, BigNumberish, BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "hashesOfFromToken",
     values: [string, BigNumberish, BigNumberish]
@@ -105,6 +110,7 @@ interface OrderBookInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "getMaker", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "getOrders", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "hashesOfFromToken",
     data: BytesLike
@@ -139,24 +145,97 @@ interface OrderBookInterface extends ethers.utils.Interface {
   ): Result;
 
   events: {
-    "OrderCreated(bytes32)": EventFragment;
+    "OrderCreated(bytes32,tuple)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "OrderCreated"): EventFragment;
 }
 
-export type OrderCreatedEvent = TypedEvent<[string] & { hash: string }>;
+export type OrderCreatedEvent = TypedEvent<
+  [
+    string,
+    [
+      string,
+      string,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      maker: string;
+      fromToken: string;
+      toToken: string;
+      amountIn: BigNumber;
+      amountOutMin: BigNumber;
+      recipient: string;
+      deadline: BigNumber;
+      created: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    }
+  ] & {
+    hash: string;
+    order: [
+      string,
+      string,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      maker: string;
+      fromToken: string;
+      toToken: string;
+      amountIn: BigNumber;
+      amountOutMin: BigNumber;
+      recipient: string;
+      deadline: BigNumber;
+      created: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    };
+  }
+>;
 
 export class OrderBook extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  on(event: EventFilter | string, listener: Listener): this;
-  once(event: EventFilter | string, listener: Listener): this;
-  addListener(eventName: EventFilter | string, listener: Listener): this;
-  removeAllListeners(eventName: EventFilter | string): this;
-  removeListener(eventName: any, listener: Listener): this;
+  listeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter?: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): Array<TypedListener<EventArgsArray, EventArgsObject>>;
+  off<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  on<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  once<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeListener<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeAllListeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): this;
 
   listeners(eventName?: string): Array<Listener>;
   off(eventName: string, listener: Listener): this;
@@ -203,6 +282,67 @@ export class OrderBook extends BaseContract {
       hash: BytesLike,
       overrides?: CallOverrides
     ): Promise<[string] & { maker: string }>;
+
+    getOrders(
+      maker: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      [
+        ([
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        })[]
+      ] & {
+        orders: ([
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        })[];
+      }
+    >;
 
     hashesOfFromToken(
       fromToken: string,
@@ -301,6 +441,39 @@ export class OrderBook extends BaseContract {
 
   getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
+  getOrders(
+    maker: string,
+    offset: BigNumberish,
+    limit: BigNumberish,
+    overrides?: CallOverrides
+  ): Promise<
+    ([
+      string,
+      string,
+      string,
+      BigNumber,
+      BigNumber,
+      string,
+      BigNumber,
+      BigNumber,
+      number,
+      string,
+      string
+    ] & {
+      maker: string;
+      fromToken: string;
+      toToken: string;
+      amountIn: BigNumber;
+      amountOutMin: BigNumber;
+      recipient: string;
+      deadline: BigNumber;
+      created: BigNumber;
+      v: number;
+      r: string;
+      s: string;
+    })[]
+  >;
+
   hashesOfFromToken(
     fromToken: string,
     page: BigNumberish,
@@ -398,6 +571,39 @@ export class OrderBook extends BaseContract {
 
     getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<string>;
 
+    getOrders(
+      maker: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      ([
+        string,
+        string,
+        string,
+        BigNumber,
+        BigNumber,
+        string,
+        BigNumber,
+        BigNumber,
+        number,
+        string,
+        string
+      ] & {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumber;
+        amountOutMin: BigNumber;
+        recipient: string;
+        deadline: BigNumber;
+        created: BigNumber;
+        v: number;
+        r: string;
+        s: string;
+      })[]
+    >;
+
     hashesOfFromToken(
       fromToken: string,
       page: BigNumberish,
@@ -469,13 +675,129 @@ export class OrderBook extends BaseContract {
   };
 
   filters: {
-    "OrderCreated(bytes32)"(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+    "OrderCreated(bytes32,tuple)"(
+      hash?: BytesLike | null,
+      order?: null
+    ): TypedEventFilter<
+      [
+        string,
+        [
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        }
+      ],
+      {
+        hash: string;
+        order: [
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        };
+      }
+    >;
 
     OrderCreated(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+      hash?: BytesLike | null,
+      order?: null
+    ): TypedEventFilter<
+      [
+        string,
+        [
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        }
+      ],
+      {
+        hash: string;
+        order: [
+          string,
+          string,
+          string,
+          BigNumber,
+          BigNumber,
+          string,
+          BigNumber,
+          BigNumber,
+          number,
+          string,
+          string
+        ] & {
+          maker: string;
+          fromToken: string;
+          toToken: string;
+          amountIn: BigNumber;
+          amountOutMin: BigNumber;
+          recipient: string;
+          deadline: BigNumber;
+          created: BigNumber;
+          v: number;
+          r: string;
+          s: string;
+        };
+      }
+    >;
   };
 
   estimateGas: {
@@ -505,6 +827,13 @@ export class OrderBook extends BaseContract {
     ): Promise<BigNumber>;
 
     getMaker(hash: BytesLike, overrides?: CallOverrides): Promise<BigNumber>;
+
+    getOrders(
+      maker: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     hashesOfFromToken(
       fromToken: string,
@@ -575,6 +904,13 @@ export class OrderBook extends BaseContract {
 
     getMaker(
       hash: BytesLike,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    getOrders(
+      maker: string,
+      offset: BigNumberish,
+      limit: BigNumberish,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 

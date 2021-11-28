@@ -18,7 +18,7 @@ import {
 import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
-import type { TypedEventFilter, TypedEvent } from "./common";
+import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
 
 interface SettlementInterface extends ethers.utils.Interface {
   functions: {
@@ -28,7 +28,8 @@ interface SettlementInterface extends ethers.utils.Interface {
     "WRBTC_ADDRESS()": FunctionFragment;
     "allCanceledHashes()": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
-    "cancelOrder(bytes32)": FunctionFragment;
+    "cancelMarginOrder((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
+    "cancelOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
     "canceledOfHash(bytes32)": FunctionFragment;
     "checkCanceledHashes(bytes32[])": FunctionFragment;
     "checkFilledAmountHashes(bytes32[])": FunctionFragment;
@@ -38,9 +39,11 @@ interface SettlementInterface extends ethers.utils.Interface {
     "fillOrder(((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256,address[]))": FunctionFragment;
     "fillOrders(tuple[])": FunctionFragment;
     "filledAmountInOfHash(bytes32)": FunctionFragment;
+    "minFee()": FunctionFragment;
     "orderBookAddress()": FunctionFragment;
     "orderBookMarginAddress()": FunctionFragment;
     "relayerFeePercent()": FunctionFragment;
+    "setMinFee(uint256)": FunctionFragment;
     "sovrynSwapNetwork()": FunctionFragment;
     "withdraw(uint256)": FunctionFragment;
   };
@@ -67,8 +70,43 @@ interface SettlementInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "balanceOf", values: [string]): string;
   encodeFunctionData(
+    functionFragment: "cancelMarginOrder",
+    values: [
+      {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      }
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "cancelOrder",
-    values: [BytesLike]
+    values: [
+      {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumberish;
+        amountOutMin: BigNumberish;
+        recipient: string;
+        deadline: BigNumberish;
+        created: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      }
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "canceledOfHash",
@@ -177,6 +215,7 @@ interface SettlementInterface extends ethers.utils.Interface {
     functionFragment: "filledAmountInOfHash",
     values: [BytesLike]
   ): string;
+  encodeFunctionData(functionFragment: "minFee", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "orderBookAddress",
     values?: undefined
@@ -188,6 +227,10 @@ interface SettlementInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "relayerFeePercent",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setMinFee",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "sovrynSwapNetwork",
@@ -220,6 +263,10 @@ interface SettlementInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "cancelMarginOrder",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "cancelOrder",
     data: BytesLike
   ): Result;
@@ -250,6 +297,7 @@ interface SettlementInterface extends ethers.utils.Interface {
     functionFragment: "filledAmountInOfHash",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "minFee", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "orderBookAddress",
     data: BytesLike
@@ -262,6 +310,7 @@ interface SettlementInterface extends ethers.utils.Interface {
     functionFragment: "relayerFeePercent",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "setMinFee", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "sovrynSwapNetwork",
     data: BytesLike
@@ -272,11 +321,11 @@ interface SettlementInterface extends ethers.utils.Interface {
     "Deposit(address,uint256)": EventFragment;
     "FeeSplitTransferred(bytes32,address,uint256)": EventFragment;
     "FeeTransferred(bytes32,address,uint256)": EventFragment;
-    "MarginOrderCanceled(bytes32)": EventFragment;
-    "MarginOrderFilled(bytes32,uint256,uint256)": EventFragment;
+    "MarginOrderCanceled(bytes32,address)": EventFragment;
+    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address)": EventFragment;
     "MarginTrade(address,address,uint256,uint256,uint256,uint256,address)": EventFragment;
-    "OrderCanceled(bytes32)": EventFragment;
-    "OrderFilled(bytes32,uint256,uint256)": EventFragment;
+    "OrderCanceled(bytes32,address)": EventFragment;
+    "OrderFilled(bytes32,address,uint256,uint256,address[])": EventFragment;
     "Swap(address,address,uint256,uint256,address)": EventFragment;
     "Withdrawal(address,uint256)": EventFragment;
   };
@@ -313,13 +362,31 @@ export type FeeTransferredEvent = TypedEvent<
   }
 >;
 
-export type MarginOrderCanceledEvent = TypedEvent<[string] & { hash: string }>;
+export type MarginOrderCanceledEvent = TypedEvent<
+  [string, string] & { hash: string; trader: string }
+>;
 
 export type MarginOrderFilledEvent = TypedEvent<
-  [string, BigNumber, BigNumber] & {
+  [
+    string,
+    string,
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    string,
+    BigNumber,
+    BigNumber,
+    string
+  ] & {
     hash: string;
+    trader: string;
     principal: BigNumber;
     collateral: BigNumber;
+    leverageAmount: BigNumber;
+    loanTokenAddress: string;
+    loanTokenSent: BigNumber;
+    collateralTokenSent: BigNumber;
+    collateralTokenAddress: string;
   }
 >;
 
@@ -335,13 +402,17 @@ export type MarginTradeEvent = TypedEvent<
   }
 >;
 
-export type OrderCanceledEvent = TypedEvent<[string] & { hash: string }>;
+export type OrderCanceledEvent = TypedEvent<
+  [string, string] & { hash: string; maker: string }
+>;
 
 export type OrderFilledEvent = TypedEvent<
-  [string, BigNumber, BigNumber] & {
+  [string, string, BigNumber, BigNumber, string[]] & {
     hash: string;
+    maker: string;
     amountIn: BigNumber;
     amountOut: BigNumber;
+    path: string[];
   }
 >;
 
@@ -364,12 +435,28 @@ export class Settlement extends BaseContract {
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  listeners(eventName?: string): Array<Listener>;
-  off(eventName: string, listener: Listener): this;
-  on(eventName: string, listener: Listener): this;
-  once(eventName: string, listener: Listener): this;
-  removeListener(eventName: string, listener: Listener): this;
-  removeAllListeners(eventName?: string): this;
+  listeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter?: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): Array<TypedListener<EventArgsArray, EventArgsObject>>;
+  off<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  on<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  once<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeListener<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>,
+    listener: TypedListener<EventArgsArray, EventArgsObject>
+  ): this;
+  removeAllListeners<EventArgsArray extends Array<any>, EventArgsObject>(
+    eventFilter: TypedEventFilter<EventArgsArray, EventArgsObject>
+  ): this;
 
   listeners(eventName?: string): Array<Listener>;
   off(eventName: string, listener: Listener): this;
@@ -399,8 +486,40 @@ export class Settlement extends BaseContract {
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    cancelMarginOrder(
+      order: {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
     cancelOrder(
-      hash: BytesLike,
+      order: {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumberish;
+        amountOutMin: BigNumberish;
+        recipient: string;
+        deadline: BigNumberish;
+        created: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -523,11 +642,18 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
+    minFee(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     orderBookAddress(overrides?: CallOverrides): Promise<[string]>;
 
     orderBookMarginAddress(overrides?: CallOverrides): Promise<[string]>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    setMinFee(
+      fee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<[string]>;
 
@@ -549,8 +675,40 @@ export class Settlement extends BaseContract {
 
   balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
+  cancelMarginOrder(
+    order: {
+      loanId: BytesLike;
+      leverageAmount: BigNumberish;
+      loanTokenAddress: string;
+      loanTokenSent: BigNumberish;
+      collateralTokenSent: BigNumberish;
+      collateralTokenAddress: string;
+      trader: string;
+      minReturn: BigNumberish;
+      loanDataBytes: BytesLike;
+      deadline: BigNumberish;
+      createdTimestamp: BigNumberish;
+      v: BigNumberish;
+      r: BytesLike;
+      s: BytesLike;
+    },
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
   cancelOrder(
-    hash: BytesLike,
+    order: {
+      maker: string;
+      fromToken: string;
+      toToken: string;
+      amountIn: BigNumberish;
+      amountOutMin: BigNumberish;
+      recipient: string;
+      deadline: BigNumberish;
+      created: BigNumberish;
+      v: BigNumberish;
+      r: BytesLike;
+      s: BytesLike;
+    },
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -662,11 +820,18 @@ export class Settlement extends BaseContract {
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
+  minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
   orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
   orderBookMarginAddress(overrides?: CallOverrides): Promise<string>;
 
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
+
+  setMinFee(
+    fee: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
 
   sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
 
@@ -688,7 +853,42 @@ export class Settlement extends BaseContract {
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
-    cancelOrder(hash: BytesLike, overrides?: CallOverrides): Promise<void>;
+    cancelMarginOrder(
+      order: {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    cancelOrder(
+      order: {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumberish;
+        amountOutMin: BigNumberish;
+        recipient: string;
+        deadline: BigNumberish;
+        created: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     canceledOfHash(
       arg0: BytesLike,
@@ -808,11 +1008,15 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
     orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
     orderBookMarginAddress(overrides?: CallOverrides): Promise<string>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setMinFee(fee: BigNumberish, overrides?: CallOverrides): Promise<void>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
 
@@ -866,30 +1070,84 @@ export class Settlement extends BaseContract {
       { hash: string; recipient: string; amount: BigNumber }
     >;
 
-    "MarginOrderCanceled(bytes32)"(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+    "MarginOrderCanceled(bytes32,address)"(
+      hash?: BytesLike | null,
+      trader?: string | null
+    ): TypedEventFilter<[string, string], { hash: string; trader: string }>;
 
     MarginOrderCanceled(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
-
-    "MarginOrderFilled(bytes32,uint256,uint256)"(
       hash?: BytesLike | null,
+      trader?: string | null
+    ): TypedEventFilter<[string, string], { hash: string; trader: string }>;
+
+    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address)"(
+      hash?: BytesLike | null,
+      trader?: string | null,
       principal?: null,
-      collateral?: null
+      collateral?: null,
+      leverageAmount?: null,
+      loanTokenAddress?: null,
+      loanTokenSent?: null,
+      collateralTokenSent?: null,
+      collateralTokenAddress?: null
     ): TypedEventFilter<
-      [string, BigNumber, BigNumber],
-      { hash: string; principal: BigNumber; collateral: BigNumber }
+      [
+        string,
+        string,
+        BigNumber,
+        BigNumber,
+        BigNumber,
+        string,
+        BigNumber,
+        BigNumber,
+        string
+      ],
+      {
+        hash: string;
+        trader: string;
+        principal: BigNumber;
+        collateral: BigNumber;
+        leverageAmount: BigNumber;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumber;
+        collateralTokenSent: BigNumber;
+        collateralTokenAddress: string;
+      }
     >;
 
     MarginOrderFilled(
       hash?: BytesLike | null,
+      trader?: string | null,
       principal?: null,
-      collateral?: null
+      collateral?: null,
+      leverageAmount?: null,
+      loanTokenAddress?: null,
+      loanTokenSent?: null,
+      collateralTokenSent?: null,
+      collateralTokenAddress?: null
     ): TypedEventFilter<
-      [string, BigNumber, BigNumber],
-      { hash: string; principal: BigNumber; collateral: BigNumber }
+      [
+        string,
+        string,
+        BigNumber,
+        BigNumber,
+        BigNumber,
+        string,
+        BigNumber,
+        BigNumber,
+        string
+      ],
+      {
+        hash: string;
+        trader: string;
+        principal: BigNumber;
+        collateral: BigNumber;
+        leverageAmount: BigNumber;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumber;
+        collateralTokenSent: BigNumber;
+        collateralTokenAddress: string;
+      }
     >;
 
     "MarginTrade(address,address,uint256,uint256,uint256,uint256,address)"(
@@ -934,30 +1192,48 @@ export class Settlement extends BaseContract {
       }
     >;
 
-    "OrderCanceled(bytes32)"(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
+    "OrderCanceled(bytes32,address)"(
+      hash?: BytesLike | null,
+      maker?: string | null
+    ): TypedEventFilter<[string, string], { hash: string; maker: string }>;
 
     OrderCanceled(
-      hash?: BytesLike | null
-    ): TypedEventFilter<[string], { hash: string }>;
-
-    "OrderFilled(bytes32,uint256,uint256)"(
       hash?: BytesLike | null,
+      maker?: string | null
+    ): TypedEventFilter<[string, string], { hash: string; maker: string }>;
+
+    "OrderFilled(bytes32,address,uint256,uint256,address[])"(
+      hash?: BytesLike | null,
+      maker?: string | null,
       amountIn?: null,
-      amountOut?: null
+      amountOut?: null,
+      path?: null
     ): TypedEventFilter<
-      [string, BigNumber, BigNumber],
-      { hash: string; amountIn: BigNumber; amountOut: BigNumber }
+      [string, string, BigNumber, BigNumber, string[]],
+      {
+        hash: string;
+        maker: string;
+        amountIn: BigNumber;
+        amountOut: BigNumber;
+        path: string[];
+      }
     >;
 
     OrderFilled(
       hash?: BytesLike | null,
+      maker?: string | null,
       amountIn?: null,
-      amountOut?: null
+      amountOut?: null,
+      path?: null
     ): TypedEventFilter<
-      [string, BigNumber, BigNumber],
-      { hash: string; amountIn: BigNumber; amountOut: BigNumber }
+      [string, string, BigNumber, BigNumber, string[]],
+      {
+        hash: string;
+        maker: string;
+        amountIn: BigNumber;
+        amountOut: BigNumber;
+        path: string[];
+      }
     >;
 
     "Swap(address,address,uint256,uint256,address)"(
@@ -1024,8 +1300,40 @@ export class Settlement extends BaseContract {
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
+    cancelMarginOrder(
+      order: {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
     cancelOrder(
-      hash: BytesLike,
+      order: {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumberish;
+        amountOutMin: BigNumberish;
+        recipient: string;
+        deadline: BigNumberish;
+        created: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -1140,11 +1448,18 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
     orderBookAddress(overrides?: CallOverrides): Promise<BigNumber>;
 
     orderBookMarginAddress(overrides?: CallOverrides): Promise<BigNumber>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setMinFee(
+      fee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1170,8 +1485,40 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    cancelMarginOrder(
+      order: {
+        loanId: BytesLike;
+        leverageAmount: BigNumberish;
+        loanTokenAddress: string;
+        loanTokenSent: BigNumberish;
+        collateralTokenSent: BigNumberish;
+        collateralTokenAddress: string;
+        trader: string;
+        minReturn: BigNumberish;
+        loanDataBytes: BytesLike;
+        deadline: BigNumberish;
+        createdTimestamp: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
     cancelOrder(
-      hash: BytesLike,
+      order: {
+        maker: string;
+        fromToken: string;
+        toToken: string;
+        amountIn: BigNumberish;
+        amountOutMin: BigNumberish;
+        recipient: string;
+        deadline: BigNumberish;
+        created: BigNumberish;
+        v: BigNumberish;
+        r: BytesLike;
+        s: BytesLike;
+      },
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -1286,6 +1633,8 @@ export class Settlement extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    minFee(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     orderBookAddress(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     orderBookMarginAddress(
@@ -1293,6 +1642,11 @@ export class Settlement extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    setMinFee(
+      fee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
