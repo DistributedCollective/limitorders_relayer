@@ -5,7 +5,7 @@ import { EventFilter, Event } from "ethers";
 import { Result } from "@ethersproject/abi";
 
 export interface TypedEventFilter<_EventArgsArray, _EventArgsObject>
-  extends EventFilter {}
+  extends EventFilter { }
 
 export interface TypedEvent<EventArgs extends Result> extends Event {
   args: EventArgs;
@@ -14,12 +14,12 @@ export interface TypedEvent<EventArgs extends Result> extends Event {
 export type TypedListener<
   EventArgsArray extends Array<any>,
   EventArgsObject
-> = (
-  ...listenerArg: [
-    ...EventArgsArray,
-    TypedEvent<EventArgsArray & EventArgsObject>
-  ]
-) => void;
+  > = (
+    ...listenerArg: [
+      TypedEvent<EventArgsArray & EventArgsObject>,
+      ...EventArgsArray[]
+    ]
+  ) => void;
 
 export type MinEthersFactory<C, ARGS> = {
   deploy(...a: ARGS[]): Promise<C>;

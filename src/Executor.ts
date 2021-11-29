@@ -1,4 +1,4 @@
-import { 
+import {
     Pair,
     Percent,
     Token,
@@ -12,7 +12,7 @@ import * as CSwap from "./deployments/rsktestnet/TestSovrynSwap.json";
 import { Contract, ethers } from "ethers";
 import Order from "./types/Order";
 import Log from "./Log";
-import { Settlement__factory } from "./contracts";
+import { SettlementLogic__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
 import config from "./config";
 
@@ -31,7 +31,7 @@ const deductFee = (amount: ethers.BigNumber) => {
 };
 
 const argsForOrder = async (order: Order, signer: ethers.Signer) => {
-    const contract = Settlement__factory.connect(config.contracts.settlement, signer);
+    const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
     const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, signer);
     const fromToken = order.trade.route.path[0].address;
     const toToken = order.trade.route.path[order.trade.route.path.length - 1].address;
@@ -100,17 +100,17 @@ class Executor {
     }
 
     watch(onOrderFilled: OnOrderFilled) {
-        const settlement = Settlement__factory.connect(config.contracts.settlement, this.provider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         settlement.on("OrderFilled", onOrderFilled);
     }
 
     watchMargin(onOrderFilled: OnOrderFilled) {
-        const settlement = Settlement__factory.connect(config.contracts.settlement, this.provider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         settlement.on("MarginOrderFilled", onOrderFilled);
     }
 
     async filledAmountIn(hash: string) {
-        const settlement = Settlement__factory.connect(config.contracts.settlement, this.provider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         return await settlement.filledAmountInOfHash(hash);
     }
 
@@ -145,7 +145,7 @@ class Executor {
     }
 
     async fillOrders(orders: Order[], signer: ethers.Signer) {
-        const contract = Settlement__factory.connect(config.contracts.settlement, signer);
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
         const args = (
             await Promise.all(
                 orders
@@ -179,7 +179,7 @@ class Executor {
     }
 
     async fillMarginOrders(orders: MarginOrder[], signer: ethers.Signer) {
-        const contract = Settlement__factory.connect(config.contracts.settlement, signer);
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
         const args = orders
             .filter(order => !this.pendingMarginOrders[order.hash])
             .map(order => ({ order }));
