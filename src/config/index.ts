@@ -21,6 +21,4 @@ interface Config {
     tokens: [];
 }
 
-console.log(config)
-
 export default config as Config;

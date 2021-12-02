@@ -1,12 +1,14 @@
 import { Pair, Token, TokenAmount } from "@sushiswap/sdk";
-import { ethers } from "ethers";
+import { Contract, ethers } from "ethers";
 import TokenEntry, { toToken } from "./types/TokenEntry";
 import config from "./config";
+import * as CSwap from "./deployments/rsktestnet/TestSovrynSwap.json";
 
 export type OnSync = (pair: Pair) => Promise<void> | void;
 
 class Pairs {
     static async fetch(provider: ethers.providers.BaseProvider) {
+        const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, provider);
         const tokens: TokenEntry[]  = config.tokens;
         const tokenCombinations: [Token, Token][] = [];
         for (const entryA of tokens) {
@@ -22,11 +24,10 @@ class Pairs {
             tokenCombinations.map(async pair => {
                 const [tokenA, tokenB] = pair;
                 try {
-                    const balances: any = [
-                        ethers.constants.WeiPerEther.mul(1),
-                        ethers.constants.WeiPerEther.mul(1),
-                    ];
-                    return new Pair(new TokenAmount(tokenA, balances[0]), new TokenAmount(tokenB, balances[1]));
+                    const path = await swapContract.conversionPath(tokenA.address, tokenB.address);
+                    const balA: any = ethers.constants.WeiPerEther.mul(1);
+                    const balB: any = await swapContract.rateByPath(path, balA);
+                    return new Pair(new TokenAmount(tokenA, balA), new TokenAmount(tokenB, balB));
                 } catch (e) {
                     return null;
                 }
