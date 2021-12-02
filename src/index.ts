@@ -148,11 +148,11 @@ const updateTokensAndPairs = async (provider: ethers.providers.BaseProvider) => 
     const { tokens, pairs } = await Pairs.fetch(provider);
     Log.d("found " + tokens.length + " tokens");
     tokens.forEach(token => {
-        Log.d("  " + token.address);
+        Log.d(token.symbol + ":  " + token.address);
     });
     Log.d("found " + pairs.length + " pairs");
     pairs.forEach(pair => {
-        Log.d("  " + pair.liquidityToken.address);
+        Log.d(`${pair.token0.symbol} - ${pair.token1.symbol}`);
     });
     return { tokens, pairs };
 };

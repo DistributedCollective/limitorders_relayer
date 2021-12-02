@@ -33,8 +33,8 @@ const deductFee = (amount: ethers.BigNumber) => {
 const argsForOrder = async (order: Order, signer: ethers.Signer) => {
     const contract = Settlement__factory.connect(config.contracts.settlement, signer);
     const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, signer);
-    const fromToken = order.trade.route.path[0].address;
-    const toToken = order.trade.route.path[order.trade.route.path.length - 1].address;
+    const fromToken = order.fromToken;
+    const toToken = order.toToken;
     const path = await swapContract.conversionPath(fromToken, toToken);
     const arg = {
         order,
@@ -130,13 +130,10 @@ class Executor {
                     order.amountIn.toString()
                 );
                 if (trade) {
-                    const tradeAmountOutMin = trade.minimumAmountOut(new Percent("0"));
-                    if (order.amountOutMin.lt(tradeAmountOutMin.raw.toString())) {
-                        executables.push({
-                            ...order,
-                            trade
-                        });
-                    }
+                    executables.push({
+                        ...order,
+                        trade
+                    });
                 }
             }
             if (Date.now() - now > timeout) break;
@@ -159,13 +156,12 @@ class Executor {
             args.forEach(arg => {
                 Log.d("  " + arg.order.hash + " (amountIn: " + arg.order.trade.inputAmount.toFixed() + ")");
             });
-            console.log('signer', await signer.getAddress())
             const gasLimit = await contract.estimateGas.fillOrders(args);
             const gasPrice = await signer.getGasPrice();
-            console.log('gas limit %s, price %s', Number(gasLimit), Number(gasPrice))
-            console.log(args);
+            // console.log('gas limit %s, price %s', Number(gasLimit), Number(gasPrice))
+            // console.log(args);
             const tx = await contract.fillOrders(args, {
-                gasLimit: "1000000",
+                gasLimit: gasLimit.mul(120).div(100),
                 gasPrice: gasPrice.mul(120).div(100)
             });
             args.forEach(arg => {
