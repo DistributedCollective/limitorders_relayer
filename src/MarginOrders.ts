@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { OrderBookMargin__factory, Settlement__factory } from "./contracts";
+import { OrderBookMarginLogic__factory, SettlementLogic__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
 import config from "./config";
 
@@ -13,14 +13,14 @@ const BLOCKS_PER_DAY = 6500;
 class MarginOrders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
         const fromBlock = (await provider.getBlockNumber()) - BLOCKS_PER_DAY;
-        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const filter = settlement.filters.MarginOrderCanceled();
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
         // return await settlement.allCanceledHashes();
     }
 
     private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
         const length = (await orderBook.numberOfAllHashes()).toNumber();
         const pages: number[] = [];
         for (let i = 0; i * LIMIT < length; i++) pages.push(i);
@@ -31,7 +31,7 @@ class MarginOrders {
 
     static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
         try {
-            const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+            const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
             const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
             // console.log(canceledHashes)
             const hashes = await MarginOrders.fetchHashes(kovanProvider);
@@ -57,7 +57,7 @@ class MarginOrders {
     }
 
     static async fetchOrder(hash: string, kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
         const {
             loanId,
             leverageAmount,
@@ -99,8 +99,8 @@ class MarginOrders {
         provider: ethers.providers.BaseProvider,
         kovanProvider: ethers.providers.BaseProvider
     ) {
-        const orderBook = OrderBookMargin__factory.connect(config.contracts.orderBookMargin, kovanProvider);
-        const settlement = Settlement__factory.connect(config.contracts.settlement, provider);
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         orderBook.on("MarginOrderCreated", onCreateOrder);
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
