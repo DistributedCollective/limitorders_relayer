@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config({ debug: true });
 
-import Ethereum from "./Ethereum";
+import RSK from "./RSK";
 import Pairs from "./Pairs";
 import Log from "./Log";
 import Orders from "./Orders";
@@ -12,8 +12,8 @@ import { ethers } from "ethers";
 import MarginOrders from './MarginOrders';
 
 
-const mainnet = Ethereum.Mainnet;
-const kovan = Ethereum.Kovan;
+const mainnet = RSK.Mainnet;
+const testnet = RSK.Testnet;
 
 // tslint:disable-next-line:max-func-body-length
 
@@ -29,7 +29,7 @@ const processLimitOrderes = async () => {
     let { tokens, pairs } = await updateTokensAndPairs(mainnet.provider);
 
     Log.d("fetching orders...");
-    const orders = await Orders.fetch(mainnet.provider, kovan.provider);
+    const orders = await Orders.fetch(mainnet.provider, testnet.provider);
     Log.d("found " + orders.length + " orders");
     orders.forEach(order => {
         Log.d("  " + order.hash);
@@ -37,7 +37,7 @@ const processLimitOrderes = async () => {
     Orders.watch(
         async hash => {
             Log.d("order created: " + hash);
-            orders.push(await Orders.fetchOrder(hash, kovan.provider));
+            orders.push(await Orders.fetchOrder(hash, testnet.provider));
         },
         hash => {
             Log.d("order cancelled: " + hash);
@@ -47,7 +47,7 @@ const processLimitOrderes = async () => {
             }
         },
         mainnet.provider,
-        kovan.provider
+        testnet.provider
     );
 
     const executor = new Executor(mainnet.provider);
@@ -97,7 +97,7 @@ const processLimitOrderes = async () => {
 
 const processMarginOrders = async () => {
     Log.d("fetching margin orders...");
-    const orders = await MarginOrders.fetch(mainnet.provider, kovan.provider);
+    const orders = await MarginOrders.fetch(mainnet.provider, testnet.provider);
     Log.d("found " + orders.length + " margin orders");
     orders.forEach(order => {
         Log.d("  " + order.hash);
@@ -105,7 +105,7 @@ const processMarginOrders = async () => {
     MarginOrders.watch(
         async hash => {
             Log.d("margin order created: " + hash);
-            orders.push(await MarginOrders.fetchOrder(hash, kovan.provider));
+            orders.push(await MarginOrders.fetchOrder(hash, testnet.provider));
         },
         hash => {
             Log.d("margin order cancelled: " + hash);
@@ -115,7 +115,7 @@ const processMarginOrders = async () => {
             }
         },
         mainnet.provider,
-        kovan.provider
+        testnet.provider
     );
 
     const executor = new Executor(mainnet.provider);
