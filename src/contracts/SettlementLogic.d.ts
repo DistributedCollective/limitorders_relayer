@@ -671,6 +671,11 @@ export class SettlementLogic extends BaseContract {
 
     /**
      * Replace constructor with initialize function for Upgradable Contracts This function will be called only once by the owner
+     * @param _WRBTC wRBTC address
+     * @param _marginOrderBookAddress Margin OrderBook proxy address
+     * @param _orderBookAddress OrderBook proxy address
+     * @param _sovrynSwapNetwork SovrynSwapNetwork address
+     * @param orderBookChainId Chain Id
      */
     initialize(
       orderBookChainId: BigNumberish,
@@ -879,6 +884,11 @@ export class SettlementLogic extends BaseContract {
 
   /**
    * Replace constructor with initialize function for Upgradable Contracts This function will be called only once by the owner
+   * @param _WRBTC wRBTC address
+   * @param _marginOrderBookAddress Margin OrderBook proxy address
+   * @param _orderBookAddress OrderBook proxy address
+   * @param _sovrynSwapNetwork SovrynSwapNetwork address
+   * @param orderBookChainId Chain Id
    */
   initialize(
     orderBookChainId: BigNumberish,
@@ -1097,6 +1107,11 @@ export class SettlementLogic extends BaseContract {
 
     /**
      * Replace constructor with initialize function for Upgradable Contracts This function will be called only once by the owner
+     * @param _WRBTC wRBTC address
+     * @param _marginOrderBookAddress Margin OrderBook proxy address
+     * @param _orderBookAddress OrderBook proxy address
+     * @param _sovrynSwapNetwork SovrynSwapNetwork address
+     * @param orderBookChainId Chain Id
      */
     initialize(
       orderBookChainId: BigNumberish,
@@ -1583,6 +1598,11 @@ export class SettlementLogic extends BaseContract {
 
     /**
      * Replace constructor with initialize function for Upgradable Contracts This function will be called only once by the owner
+     * @param _WRBTC wRBTC address
+     * @param _marginOrderBookAddress Margin OrderBook proxy address
+     * @param _orderBookAddress OrderBook proxy address
+     * @param _sovrynSwapNetwork SovrynSwapNetwork address
+     * @param orderBookChainId Chain Id
      */
     initialize(
       orderBookChainId: BigNumberish,
@@ -1798,6 +1818,11 @@ export class SettlementLogic extends BaseContract {
 
     /**
      * Replace constructor with initialize function for Upgradable Contracts This function will be called only once by the owner
+     * @param _WRBTC wRBTC address
+     * @param _marginOrderBookAddress Margin OrderBook proxy address
+     * @param _orderBookAddress OrderBook proxy address
+     * @param _sovrynSwapNetwork SovrynSwapNetwork address
+     * @param orderBookChainId Chain Id
      */
     initialize(
       orderBookChainId: BigNumberish,
