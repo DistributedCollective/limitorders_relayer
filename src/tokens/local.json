@@ -15,6 +15,13 @@
             "symbol": "XUSD",
             "decimals": 18,
             "logoURI": "https://lite.sushi.com/images/tokens/SUSHI.png"
+        },
+        {
+            "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+            "chainId": 31337,
+            "name": "WRBTC",
+            "symbol": "WRBTC",
+            "decimals": 18
         }
     ]
 }

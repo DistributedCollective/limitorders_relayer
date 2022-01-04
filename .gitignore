@@ -1,5 +1,6 @@
 node_modules
 dist
 .env
-src/deployments/
-.vscode
+src/deployments/localhost
+db/
+secrets

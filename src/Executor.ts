@@ -1,6 +1,5 @@
 import {
     Pair,
-    Percent,
     Token,
     TokenAmount,
     Trade,
@@ -8,13 +7,20 @@ import {
     Currency,
     Route,
 } from "@sushiswap/sdk";
-import * as CSwap from "./deployments/rsktestnet/TestSovrynSwap.json";
-import { Contract, ethers } from "ethers";
-import Order from "./types/Order";
+import _ from 'lodash';
+import swapAbi from "./config/abi_sovrynSwap.json";
+import erc20Abi from "./config/abi_erc20.json";
+import { BigNumber, constants, Contract, ContractReceipt, ContractTransaction, ethers, Signer } from "ethers";
+import Order, { BaseOrder } from "./types/Order";
 import Log from "./Log";
 import { SettlementLogic__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
 import config from "./config";
+import Db from "./Db";
+import { Utils } from "./Utils";
+import MarginOrders from "./MarginOrders";
+import { formatEther } from "ethers/lib/utils";
+import RSK from "./RSK";
 
 export type OnOrderFilled = (
     hash: string,
@@ -26,13 +32,9 @@ const findToken = (tokens: Token[], tokenAddress: string) => {
     return tokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase());
 };
 
-const deductFee = (amount: ethers.BigNumber) => {
-    return amount.sub(amount.mul(2).div(1000)); // Fee: 0.2%
-};
-
 const argsForOrder = async (order: Order, signer: ethers.Signer) => {
     const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
-    const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, signer);
+    const swapContract = new Contract(config.contracts.sovrynSwap, swapAbi, signer);
     const fromToken = order.fromToken;
     const toToken = order.toToken;
     const path = await swapContract.conversionPath(fromToken, toToken);
@@ -43,21 +45,21 @@ const argsForOrder = async (order: Order, signer: ethers.Signer) => {
     };
     try {
         const gasLimit = await contract.estimateGas.fillOrder(arg);
-        console.log('gasLimit', Number(gasLimit));
+        Log.d('gasLimit', Number(gasLimit));
         return arg;
     } catch (e) {
         Log.w("  " + order.hash + " will revert");
-        console.log(e);
+        Log.e(e);
+        await Db.updateFilledOrder(await signer.getAddress(), order.hash, '', 'failed', '');
         return null;
     }
 };
 
 const equalsCurrency = (currency1: Currency, currency2: Currency) => {
-    return currency1.name == currency2.name;
+    return currency1.name === currency2.name;
 }
 
-const getTrade = async (provider, pairs: Pair[], tokenIn: Token, tokenOut: Token, amountIn: string): Promise<Trade> => {
-    const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, provider);
+const checkTradable = async (pairs: Pair[], tokenIn: Token, tokenOut: Token, amountIn: BigNumber, amountOutMin: BigNumber): Promise<boolean> => {
     let bestPair, bestAmountOut;
     for (let i = 0; i < pairs.length; i++) {
         const { token0, token1 } = pairs[i];
@@ -65,34 +67,73 @@ const getTrade = async (provider, pairs: Pair[], tokenIn: Token, tokenOut: Token
             equalsCurrency(token0, tokenOut) && equalsCurrency(token1, tokenIn)
         ) {
             try {
-                const path = await swapContract.conversionPath(tokenIn.address, tokenOut.address);
-                const amountOut = await swapContract.rateByPath(path, amountIn);
-                if (bestPair == null || amountOut < bestAmountOut) {
+                const amountOut = await Utils.convertTokenAmount(tokenIn.address, tokenOut.address, amountIn);
+                if (amountOut.gte(amountOutMin) && (bestPair == null || amountOut.gt(bestAmountOut))) {
                     bestPair = pairs[i];
                     bestAmountOut = amountOut;
                 }
             } catch (error) {
-                console.log(error);
+                Log.e(error);
             }
         }
     }
 
-    if (bestPair) {
-        return new Trade(
-            new Route(
-                [bestPair],
-                tokenIn,
-                tokenOut
-            ),
-            new TokenAmount(tokenIn, amountIn),
-            TradeType.EXACT_INPUT
-        );
-    }
+    return bestPair != null;
 };
 
+const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, orders: Order[]) => {
+    // return orders;
+
+    const result = [];
+    const makers = _.uniqBy(orders, o => o.maker + ':' + o.fromToken)
+        .map(o => ({ maker: o.maker, token: o.fromToken }));
+    const allowances = await Promise.all(makers.map(async ({maker, token}) => {
+        const tokenContract = new Contract(token, <any>erc20Abi, provider);
+        let allowance;
+        if (token.toLowerCase() === Utils.getTokenAddress('wrbtc').toLowerCase()) {
+            const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+            allowance = await settlement.balanceOf(maker);
+        } else {
+            allowance = await tokenContract.allowance(maker, config.contracts.settlement);
+        }
+
+        return { maker, token, allowance: BigNumber.from(String(allowance)) };
+    }));
+
+    _.sortBy(orders, 'maker', order => -Number(formatEther(order.amountIn)))
+    .forEach(order => {
+        const validAllowance = allowances.find(o => {
+            return o.maker === order.maker && o.token === order.fromToken
+                && o.allowance.gte(order.amountIn);
+        });
+        if (validAllowance) {
+            result.push(order);
+            validAllowance.allowance = validAllowance.allowance.sub(order.amountIn);
+        }
+    });
+
+    return result
+};
+
+const getPrice = async (signer: ethers.Signer) => {
+    return (await signer.getGasPrice()).mul(120).div(100);
+}
+
+const calculateProfit = async (order: BaseOrder, tx: ContractReceipt, orderInBatch: number, gasPrice: BigNumber) => {
+    let orderSize;
+
+    if ((order as Order).maker) {
+        const limitOrder = order as Order;
+        orderSize = await Utils.convertUsdAmount(limitOrder.fromToken, limitOrder.amountIn);
+    } else {
+        orderSize = await MarginOrders.getOrderSize(order as MarginOrder);
+    }
+    const profit = orderSize.mul(2).div(1000); // 0.2% fee
+    const txFee = tx.gasUsed.mul(gasPrice).div(orderInBatch);
+    return formatEther(profit.sub(txFee));
+}
+
 class Executor {
-    pendingOrders: { [orderHash: string]: ethers.ContractTransaction } = {};
-    pendingMarginOrders: { [orderHash: string]: boolean } = {};
     provider: ethers.providers.BaseProvider;
 
     constructor(provider: ethers.providers.BaseProvider) {
@@ -122,80 +163,180 @@ class Executor {
             const toToken = findToken(tokens, order.toToken);
             const filledAmountIn = await this.filledAmountIn(order.hash);
             if (fromToken && toToken && order.deadline.toNumber() * 1000 >= now && filledAmountIn.lt(order.amountIn)) {
-                const trade = await getTrade(
-                    this.provider,
+                const tradable = await checkTradable(
                     pairs,
                     fromToken,
                     toToken,
-                    order.amountIn.toString()
+                    order.amountIn,
+                    order.amountOutMin
                 );
-                if (trade) {
-                    executables.push({
-                        ...order,
-                        trade
-                    });
+                const orderSize = await Utils.convertUsdAmount(order.fromToken, order.amountIn);
+                if (tradable && orderSize.gt(config.minOrderSize)) {
+                    executables.push(order);
                 }
             }
             if (Date.now() - now > timeout) break;
         }
+
+        for (const order of executables) {
+            await Db.addOrder(order);
+        }
+
         return executables;
     }
 
-    async fillOrders(orders: Order[], signer: ethers.Signer) {
-        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
-        const args = (
-            await Promise.all(
-                orders
-                    .filter(order => order.trade)
-                    .filter(order => !this.pendingOrders[order.hash])
-                    .map(order => argsForOrder(order, signer))
-            )
-        ).filter(arg => arg !== null);
-        if (args.length > 0) {
-            Log.d("filling orders...");
-            args.forEach(arg => {
-                Log.d("  " + arg.order.hash + " (amountIn: " + arg.order.trade.inputAmount.toFixed() + ")");
+    async matchMarginOrders(orders: MarginOrder[]) {
+        const executables: MarginOrder[] = [];
+
+        for (const order of orders) {
+            const orderSize: BigNumber = await MarginOrders.getOrderSize(order);
+            if (orderSize.gt(config.minOrderSize)) {
+                executables.push(order);
+            }
+        }
+
+        for (const order of executables) {
+            await Db.addMarginOrder(order);
+        }
+
+        return executables;
+    }
+
+    async checkFillBatchOrders(net: RSK, type = 'limit', retryBatchId: string = null) {
+        try {
+            const isLimitOrder = type == 'limit';
+            let orders: BaseOrder[] = await Db.findMatchingOrders(type, {
+                batchId: retryBatchId,
+                status: !!retryBatchId ? 'retrying' : 'matched'
             });
-            const gasLimit = await contract.estimateGas.fillOrders(args);
-            const gasPrice = await signer.getGasPrice();
-            // console.log('gas limit %s, price %s', Number(gasLimit), Number(gasPrice))
-            // console.log(args);
-            const tx = await contract.fillOrders(args, {
-                gasLimit: gasLimit.mul(120).div(100),
-                gasPrice: gasPrice.mul(120).div(100)
-            });
-            args.forEach(arg => {
-                this.pendingOrders[arg.order.hash] = tx;
-            });
-            tx.wait().then(() => {
-                args.forEach(arg => delete this.pendingOrders[arg.order.hash]);
-            });
-            Log.d("  tx hash: ", tx.hash);
+
+            if (isLimitOrder) {
+                orders = await checkOrdersAllowance(this.provider, orders as Order[]);
+            }
+
+            const batches = _.chunk(orders, config.maxOrdersInBatch);
+            
+            for (const batchOrders of batches) {
+                const signer = await net.getWallet();
+                if (signer == null) {
+                    Log.d("No wallet available");
+                    continue;
+                }
+
+                const batchId = retryBatchId || Utils.getUuid();
+                await Db.updateOrdersStatus(batchOrders.map(order => order.hash), 'filling', batchId);
+
+                const signerAdr = await signer.getAddress();
+                let fill: Promise<ContractTransaction>;
+
+                net.addPendingHash(signerAdr, batchId);
+
+                if (isLimitOrder) {
+                    fill = this.fillOrders(net, batchOrders as Order[], signer);
+                } else {
+                    fill = this.fillMarginOrders(net, batchOrders as MarginOrder[], signer);
+                }
+
+                fill.then(async (tx) => {
+                    net.removeHash(batchId);
+                    const receipt = await tx.wait();
+                    for (const order of batchOrders) {
+                        const profit = await calculateProfit(order, receipt, batchOrders.length, tx.gasPrice);
+                        await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, 'success', profit);
+                        Log.d(`profit of ${order.hash}: ${profit}$`);
+                    }
+                }).catch(async (e) => {
+                    Log.e(e);
+
+                    net.removeHash(batchId);
+                    if (batchOrders.length === 1) {
+                        await Db.updateFilledOrder(signerAdr, batchOrders[0].hash, '', 'failed', '');
+                    } else {
+                        await Utils.wasteTime(10);
+                        await this.retryFillFailedOrders(batchOrders.map(order => order), net, isLimitOrder);
+                    }
+                });
+                await Utils.wasteTime(10);
+            }
+
+
+        } catch (err) {
+            Log.e(err);
         }
     }
 
-    async fillMarginOrders(orders: MarginOrder[], signer: ethers.Signer) {
+    async retryFillFailedOrders(orders: any[], net: RSK, isLimitOrder = false) {
+        const mid = Math.round(orders.length / 2)
+        const firstBatch = orders.slice(0, mid), lastBatch = orders.slice(mid);
+        const batchId1 = Utils.getUuid(), batchId2 = Utils.getUuid();
+        await Db.updateOrdersStatus(firstBatch.map(o => o.hash), 'retrying', batchId1);
+        await Db.updateOrdersStatus(lastBatch.map(o => o.hash), 'retrying', batchId2);
+
+        if (isLimitOrder) {
+            await Promise.all([
+                this.checkFillBatchOrders(net, batchId1),
+                this.checkFillBatchOrders(net, batchId2)
+            ]);
+        } else {
+            await Promise.all([
+                this.checkFillBatchOrders(net, batchId1),
+                this.checkFillBatchOrders(net, batchId2)
+            ]);
+        }
+    }
+
+    async fillOrders(net: RSK, orders: Order[], signer: ethers.Signer) {
         const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
-        const args = orders
-            .filter(order => !this.pendingMarginOrders[order.hash])
-            .map(order => ({ order }));
+        const args = (
+            await Promise.all(
+                orders.map(order => argsForOrder(order, signer))
+            )
+        ).filter(arg => arg !== null);
+
+        if (args.length > 0) {
+            Log.d("filling orders...");
+            await Db.updateOrdersStatus(args.map(arg => arg.order.hash), 'filling', Utils.getUuid());
+
+            args.forEach(arg => {
+                const symbol = Utils.getTokenSymbol(arg.order.fromToken);
+                Log.d("  " + arg.order.hash + " (amountIn: " + formatEther(arg.order.amountIn) + " " + symbol + ")");
+            });
+
+            const signerAdr = await signer.getAddress();
+            const gasLimit = await contract.estimateGas.fillOrders(args);
+            const gasPrice = await getPrice(signer);
+            const nonce = await net.getNonce(signerAdr);
+            const tx = await contract.fillOrders(args, {
+                gasLimit: gasLimit.mul(120).div(100),
+                gasPrice: gasPrice,
+                nonce
+            });
+            Log.d("  tx hash: ", tx.hash);
+            return tx;
+            // return await tx.wait();
+        }
+    }
+
+    async fillMarginOrders(net: RSK, orders: MarginOrder[], signer: Signer) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
+        const args = orders.map(order => ({ order }));
 
         if (args.length > 0) {
             Log.d("filling margin orders...");
             args.forEach(arg => {
                 Log.d("  " + arg.order.hash);
-                this.pendingMarginOrders[arg.order.hash] = true;
             });
+
+            const signerAdr = await signer.getAddress();
             const gasLimit = await contract.estimateGas.fillMarginOrders(args);
-            const gasPrice = await signer.getGasPrice();
+            const gasPrice = await getPrice(signer);
+            const nonce = await net.getNonce(signerAdr);
             const tx = await contract.fillMarginOrders(args, {
                 gasLimit: gasLimit.mul(120).div(100),
-                gasPrice: gasPrice.mul(120).div(100)
+                gasPrice: gasPrice,
+                nonce
             });
-            tx.wait().then(() => {
-                args.forEach(arg => delete this.pendingMarginOrders[arg.order.hash]);
-            });
-            Log.d("  tx hash: ", tx.hash);
+            return tx;
         }
     }
 }

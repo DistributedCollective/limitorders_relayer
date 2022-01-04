@@ -1,24 +1,39 @@
+import TokenEntry from "src/types/TokenEntry";
+import Log from "../Log";
+
 let { default: config } = require('./testnet');
 
 if (process.argv.indexOf('--local') >= 0) {
     config = require('./local').default;
-    console.log('Using local config');
+    Log.d('Using local config');
 } else if (process.argv.indexOf('--mainnet') >= 0) {
     config = require('./main').default;
-    console.log('Using mainnet config');
+    Log.d('Using mainnet config');
 } else {
-    console.log('Using testnet config');
+    Log.d('Using testnet config');
 }
 
 interface Config {
-    rpcNode: string;
+  rpcNode: string;
+    mainnet: boolean;
+    db: string;
+    serverPort: number;
     contracts: {
         settlement: string;
         orderBook: string;
         orderBookMargin: string;
         sovrynSwap: string;
     };
-    tokens: [];
+    tokens: TokenEntry[];
+    minOrderSize: number;
+    maxOrdersInBatch: number;
+    accounts: RelayerAccount[];
+    blockExplorer: string;
+}
+
+export interface RelayerAccount {
+    address: string;
+    pKey: string;
 }
 
 export default config as Config;

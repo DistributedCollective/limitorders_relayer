@@ -1,7 +1,10 @@
-import { ethers } from "ethers";
+import { BigNumber, constants, Contract, ethers } from "ethers";
 import { OrderBookMarginLogic__factory, SettlementLogic__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
 import config from "./config";
+import Log from "./Log";
+import { Utils } from "./Utils";
+import abiLoan from './config/abi_loan.json';
 
 const LIMIT = 20;
 
@@ -33,7 +36,6 @@ class MarginOrders {
         try {
             const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
             const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
-            // console.log(canceledHashes)
             const hashes = await MarginOrders.fetchHashes(kovanProvider);
             const now = Math.floor(Date.now() / 1000);
             return (
@@ -44,14 +46,13 @@ class MarginOrders {
                             const order = await this.fetchOrder(hash, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
-                            // console.log(hash, Number(filledAmountIn));
                             if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
                             return order;
                         })
                 )
             ).filter(order => !!order);
         } catch (e) {
-            console.log(e);
+            Log.e(e);
             return [];
         }
     }
@@ -104,6 +105,33 @@ class MarginOrders {
         orderBook.on("MarginOrderCreated", onCreateOrder);
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
+
+    static async getOrderSize(order: MarginOrder) : Promise<BigNumber> {
+        let orderSize: BigNumber = constants.Zero;
+        if (order.collateralTokenSent.gt(constants.Zero)) {
+            const amn = await Utils.convertUsdAmount(order.collateralTokenAddress, order.collateralTokenSent);
+            orderSize = orderSize.add(amn);
+        }
+        if (order.loanTokenSent.gt(constants.Zero)) {
+            const loanContract = new Contract(order.loanTokenAddress, abiLoan);
+            const loanAssetAdr = await loanContract.loanTokenAddress();
+            const loanAmnUsd = await Utils.convertUsdAmount(loanAssetAdr, order.loanTokenSent);
+            orderSize = orderSize.add(loanAmnUsd);
+        }
+        return orderSize;
+    }
+
+  static parseOrder(json: any): MarginOrder {
+    return {
+        ...json,
+        leverageAmount: BigNumber.from(json.leverageAmount),
+        loanTokenSent: BigNumber.from(json.loanTokenSent),
+        collateralTokenSent: BigNumber.from(json.collateralTokenSent),
+        minReturn: BigNumber.from(json.minReturn),
+        deadline: BigNumber.from(json.deadline),
+        createdTimestamp: BigNumber.from(json.createdTimestamp),
+    };
+  }
 }
 
 export default MarginOrders;

@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 import { OrderBookSwapLogic__factory, SettlementLogic__factory } from "./contracts";
 import Order from "./types/Order";
 import config from "./config";
@@ -94,6 +94,16 @@ class Orders {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         orderBook.on("OrderCreated", onCreateOrder);
         settlement.on("OrderCanceled", onCancelOrder);
+    }
+
+    static parseOrder(orderJSON): Order {
+        return {
+            ...orderJSON,
+            amountIn: BigNumber.from(orderJSON.amountIn),
+            amountOutMin: BigNumber.from(orderJSON.amountOutMin),
+            deadline: BigNumber.from(orderJSON.deadline),
+            created: BigNumber.from(orderJSON.created),
+        };
     }
 }
 

@@ -2,13 +2,13 @@ import { Pair, Token, TokenAmount } from "@sushiswap/sdk";
 import { Contract, ethers } from "ethers";
 import TokenEntry, { toToken } from "./types/TokenEntry";
 import config from "./config";
-import * as CSwap from "./deployments/rsktestnet/TestSovrynSwap.json";
+import swapAbi from "./config/abi_sovrynSwap.json";
 
 export type OnSync = (pair: Pair) => Promise<void> | void;
 
 class Pairs {
     static async fetch(provider: ethers.providers.BaseProvider) {
-        const swapContract = new Contract(config.contracts.sovrynSwap, CSwap.abi, provider);
+        const swapContract = new Contract(config.contracts.sovrynSwap, swapAbi, provider);
         const tokens: TokenEntry[]  = config.tokens;
         const tokenCombinations: [Token, Token][] = [];
         for (const entryA of tokens) {

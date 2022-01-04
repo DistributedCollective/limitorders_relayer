@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular-csp.min.css"
+        integrity="sha512-nptw3cPhphu13Dy21CXMS1ceuSy2yxpKswAfZ7bAAE2Lvh8rHXhQFOjU+sSnw4B+mEoQmKFLKOj8lmXKVk3gow=="
+        crossorigin="anonymous" />
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+    <title>Sovryn Settlement Relayer</title>
+</head>
+
+<body ng-controller="appCtrl as ctrl">
+    <div class="container">
+        <h1>Sovryn Settlement Relayer</h1>
+
+        <div class="row">
+            <div class="col-6">
+                <h2>Wallet info</h2>
+                <h4>Total USD balance: {{ ctrl.totalUsdBalance }}</h4>
+                <h4>Accounts</h4>
+                <table>
+                    <tr>
+                        <th>Account</th>
+                        <th>USD</th>
+                        <th>RBTC</th>
+                        <th ng-repeat="token in ctrl.tokens">
+                            {{ token.toUpperCase() }}
+                        </th>
+                    </tr>
+                    <tr ng-repeat="account in ctrl.accounts">
+                        <td><a ng-href="{{ctrl.blockExplorer}}address/{{account.address}}" target="_blank">{{
+                                account.address }}</a></td>
+                        <td>{{ account.usdBalance }}</td>
+                        <td>
+                            {{ account.rBtcBalance.balance }}
+                        </td>
+                        <td ng-if="account.tokenBalances.length > 0" ng-repeat="balance in account.tokenBalances">
+                            {{ balance.balance }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <br />
+                <br />
+                <table>
+                    <tr>
+                        <th>Total actions</th>
+                        <th>Total Profit</th>
+                        <th>Total actions last 24h</th>
+                        <th>Total profit last 24h</th>
+                    </tr>
+                    <tr>
+                        <td>{{ ctrl.totalOrders }}</td>
+                        <td>{{ ctrl.totalProfit }}</td>
+                        <td>{{ ctrl.last24HOrders }}</td>
+                        <td>{{ ctrl.last24HProfit }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular.min.js"
+        integrity="sha512-jiG+LwJB0bmXdn4byKzWH6whPpnLy1pnGA/p3VCXFLk4IJ/Ftfcb22katPTapt35Q6kwrlnRheK6UPOIdJhYTA=="
+        crossorigin="anonymous"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>

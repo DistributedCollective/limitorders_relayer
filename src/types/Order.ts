@@ -1,7 +1,11 @@
 import { ethers } from "ethers";
 import { Trade } from "@sushiswap/sdk";
 
-interface Order {
+export interface BaseOrder {
+    hash: string;
+}
+
+interface Order extends BaseOrder {
     hash: string;
     maker: string;
     fromToken: string;

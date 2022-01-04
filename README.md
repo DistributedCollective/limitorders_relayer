@@ -21,8 +21,23 @@ $ yarn
 ```
 
 ## Run
-```shell script
-$ yarn start
+
+1. Prepare accounts for relayers: create `src/secrets/accounts.ts` file contains relayers private keys as below format:
+```
+export default {
+    local: [],
+    testnet: [],
+    main: [
+        {
+            address: '',
+            pKey: ''
+        },
+    ]
+}
+```
+
+2. ```shell script
+$ yarn start:mainnet
 ```
 
 ## License
