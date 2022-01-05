@@ -15,5 +15,5 @@ export default {
     minOrderSize: String(1e18), //1 xusd
     maxOrdersInBatch: 5,
     accounts: accounts.local,
-    blockExplorer: "http://localhost"
+    blockExplorer: "http://localhost",
 };

@@ -33,6 +33,7 @@ export const start = async (io: IO.Server) => {
         socket.on('getAddresses', async (cb) => Monitor.getAddresses(cb));
         socket.on('getTotals', async (cb) => Monitor.getTotals(cb));
         socket.on('getLast24HTotals', async (cb) => Monitor.getTotals(cb, true));
+        socket.on('getOrderDetail', async (hash, isMargin, cb) => Monitor.getOrderDetail(hash, isMargin, cb));
     });
 };
 

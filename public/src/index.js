@@ -10,8 +10,10 @@ class AppCtrl {
         this.totalProfit =0;
         this.last24HOrders = 0;
         this.last24HProfit = 0;
-        this.$scope = $scope;
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
 
+        this.$scope = $scope;
         this.start();
     }
 
@@ -77,6 +79,34 @@ class AppCtrl {
             p.last24HProfit = res.profit;
             p.$scope.$applyAsync();
         })
+    }
+
+    viewOrder() {
+        const p = this;
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
+        const hash = prompt("Enter order hash:");
+        socket.emit("getOrderDetail", hash, false, (res) => {
+            console.log("response order detail", res);
+            if (res.error) alert(res.error);
+            else {
+                p.orderDetail = res;
+            }
+        });
+    }
+
+    viewMarginOrder() {
+        const p = this;
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
+        const hash = prompt("Enter order hash:");
+        socket.emit("getOrderDetail", hash, true, (res) => {
+            console.log("response order detail", res);
+            if (res.error) alert(res.error);
+            else {
+                p.marginOrderDetail = res;
+            }
+        });
     }
 }
 

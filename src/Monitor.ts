@@ -1,9 +1,12 @@
-import { BigNumber, providers } from "ethers";
+import { BigNumber, constants, Contract, providers } from "ethers";
 import { formatEther, parseEther } from "ethers/lib/utils";
 import config, { RelayerAccount } from "./config";
+import { OrderBookMarginLogic__factory, OrderBookSwapLogic__factory, SettlementLogic__factory } from "./contracts";
 import Db from "./Db";
 import RSK from "./RSK";
 import { Utils } from "./Utils";
+import erc20ABI from './config/abi_erc20.json';
+import loanABI from './config/abi_loan.json';
 
 class Monitor {
     net: RSK;
@@ -67,6 +70,53 @@ class Monitor {
             blockExplorer: config.blockExplorer
         };
         cb(resp)
+    }
+
+    async getOrderDetail(hash: string, isMargin: boolean, cb) {
+        const orderBook = OrderBookSwapLogic__factory.connect(config.contracts.orderBook, RSK.Testnet.provider);
+        const marginOrderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, RSK.Testnet.provider);
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, RSK.Mainnet.provider)
+        let order;
+        if (isMargin) {
+            const raw = await marginOrderBook.orderOfHash(hash);
+            if (raw.trader == constants.AddressZero) cb({ error: 'Order is not found' });
+
+            const loanContract = new Contract(raw.loanTokenAddress, loanABI, RSK.Mainnet.provider);
+            const loanAssetToken = new Contract(await loanContract.loanTokenAddress(), erc20ABI, RSK.Mainnet.provider);
+            const collateralToken = new Contract(raw.collateralTokenAddress, erc20ABI, RSK.Mainnet.provider);
+
+            order = {
+                loanId: raw.loanId,
+                leverageAmount: formatEther(raw.leverageAmount),
+                loanTokenAddress: raw.loanTokenAddress,
+                loanTokenSent: formatEther(raw.loanTokenSent) + ' ' + (await loanAssetToken.symbol()),
+                collateralTokenSent: formatEther(raw.collateralTokenSent) + ' ' + (await collateralToken.symbol()),
+                collateralTokenAddress: raw.collateralTokenAddress,
+                trader: raw.trader,
+                minReturn: formatEther(raw.minReturn),
+                loanDataBytes: raw.loanDataBytes,
+                deadline: raw.deadline.toNumber(),
+                createdTimestamp: raw.createdTimestamp.toNumber(),
+            };
+        } else {
+            const raw = await orderBook.orderOfHash(hash);
+            if (raw.maker == constants.AddressZero) cb({error: 'Order is not found'})
+            order = {
+                maker: raw.maker,
+                fromToken: raw.fromToken,
+                toToken: raw.toToken,
+                amountIn: formatEther(raw.amountIn),
+                amountOutMin: formatEther(raw.amountOutMin),
+                recipient: raw.recipient,
+                deadline: raw.deadline.toNumber(),
+                created: raw.created.toNumber(),
+            };
+        }
+        order.cancelled = await settlement.canceledOfHash(hash);
+        const filledAmount = await settlement.filledAmountInOfHash(hash);
+        order.filledAmount = formatEther(filledAmount);
+
+        cb(order);
     }
 }
 

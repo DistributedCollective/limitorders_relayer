@@ -16,5 +16,5 @@ export default {
     minOrderSize: String(1000e18), //1000$ ~ 2$ fee
     maxOrdersInBatch: 5,
     accounts: accounts.main,
-    blockExplorer: "https://explorer.rsk.com/"
+    blockExplorer: "https://explorer.rsk.com/",
 };

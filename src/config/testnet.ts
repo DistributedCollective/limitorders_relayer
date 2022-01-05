@@ -15,5 +15,5 @@ export default {
     minOrderSize: String(1e18), //xusd
     maxOrdersInBatch: 5,
     accounts: accounts.testnet,
-    blockExplorer: "https://explorer.testnet.rsk.com/"
+    blockExplorer: "https://explorer.testnet.rsk.com/",
 };
