@@ -6,9 +6,9 @@ export default {
     db: 'limitorders_relayer_test.db',
     serverPort: 4000,
     contracts: {
-        settlement: '0x4E19834396816398469585C7C0F6c5fd5DBFDA8b',
-        orderBook: '0x8316F90a73e14a4e3B87263f0fde575219d3c210',
-        orderBookMargin: '0x142397a33b79c97f13dC709DFE93fca39A7ba25e',
+        settlement: '0xF7F1fFC1243405003C94f7c7db13aA5Abc043B7C',
+        orderBook: '0x31186271359414fA40F81cbFA56fab72F549cBaD',
+        orderBookMargin: '0x92aFAF5051d84692fcE7d04a1729C3357028DB79',
         sovrynSwap: '0x61172b53423e205a399640e5283e51fe60ec2256',
     },
     tokens: tokens,

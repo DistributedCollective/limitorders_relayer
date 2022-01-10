@@ -92,6 +92,7 @@ class AppCtrl {
             else {
                 p.orderDetail = res;
                 p.orderDetail.hash = hash;
+                p.$scope.$applyAsync();
             }
         });
     }
@@ -107,6 +108,7 @@ class AppCtrl {
             else {
                 p.marginOrderDetail = res;
                 p.marginOrderDetail.hash = hash;
+                p.$scope.$applyAsync();
             }
         });
     }
