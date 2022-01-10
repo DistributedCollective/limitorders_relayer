@@ -159,6 +159,9 @@ class Executor {
         const executables: Order[] = [];
         const now = Date.now();
         for (const order of orders) {
+            const added = await Db.orderModel.findOne({ hash: order.hash });
+            if (added) continue;
+
             const fromToken = findToken(tokens, order.fromToken);
             const toToken = findToken(tokens, order.toToken);
             const filledAmountIn = await this.filledAmountIn(order.hash);
@@ -189,6 +192,8 @@ class Executor {
         const executables: MarginOrder[] = [];
 
         for (const order of orders) {
+            const added = await Db.orderModel.findOne({ hash: order.hash });
+            if (added) continue;
             const orderSize: BigNumber = await MarginOrders.getOrderSize(order);
             if (orderSize.gt(config.minOrderSize)) {
                 executables.push(order);
@@ -238,14 +243,17 @@ class Executor {
                 }
 
                 fill.then(async (tx) => {
+                    console.log(tx);
                     net.removeHash(batchId);
                     const receipt = await tx.wait();
+                    console.log(receipt);
                     for (const order of batchOrders) {
                         const profit = await calculateProfit(order, receipt, batchOrders.length, tx.gasPrice);
                         await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, 'success', profit);
                         Log.d(`profit of ${order.hash}: ${profit}$`);
                     }
                 }).catch(async (e) => {
+                    console.log(e);
                     Log.e(e);
 
                     net.removeHash(batchId);
@@ -313,7 +321,6 @@ class Executor {
             });
             Log.d("  tx hash: ", tx.hash);
             return tx;
-            // return await tx.wait();
         }
     }
 

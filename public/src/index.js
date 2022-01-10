@@ -91,6 +91,7 @@ class AppCtrl {
             if (res.error) alert(res.error);
             else {
                 p.orderDetail = res;
+                p.orderDetail.hash = hash;
             }
         });
     }
@@ -105,6 +106,7 @@ class AppCtrl {
             if (res.error) alert(res.error);
             else {
                 p.marginOrderDetail = res;
+                p.marginOrderDetail.hash = hash;
             }
         });
     }

@@ -14,7 +14,7 @@ if (process.argv.indexOf('--local') >= 0) {
 }
 
 interface Config {
-  rpcNode: string;
+    rpcNode: string;
     mainnet: boolean;
     db: string;
     serverPort: number;

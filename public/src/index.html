@@ -69,39 +69,39 @@
 
         <div>
             <br/>
-            <button class="btn btn-default" ng-click="viewOrder()">
+            <button class="btn btn-default" ng-click="ctrl.viewOrder()">
                 View order detail
             </button>
             <br/>
-            <button class="btn btn-default" ng-click="viewMarginOrder()">
+            <button class="btn btn-default" ng-click="ctrl.viewMarginOrder()">
                 View margin order detail
             </button>
-            <p ng-if="orderDetail != null">
-                Hash: {{orderDetail.hash}}<br/>
-                Maker: <a ng-href="{{ctrl.blockExplorer}}address/{{orderDetail.maker}}" target="_blank">{{orderDetail.maker}}</a><br/>
-                From Token: {{orderDetail.fromToken}}<br/>
-                To Token: {{orderDetail.toToken}}<br/>
-                Amount in: {{orderDetail.amountIn}}<br/>
-                Amount out min: {{orderDetail.amountOutMin}}<br/>
-                Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{orderDetail.recipient}}" target="_blank">{{orderDetail.maker}}</a><br />
-                Deadline: <span ng-bind="{{orderDetail.deadline*1000}}|date"></span><br/>
-                Created at: <span ng-bind="{{orderDetail.created*1000}}|date"></span><br/>
-                Cancelled: {{orderDetail.cancelled}}<br/>
-                FilledAmount: {{orderDetail.filledAmount}}
+            <p ng-if="ctrl.orderDetail != null">
+                Hash: {{ctrl.orderDetail.hash}}<br/>
+                Maker: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.maker}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br/>
+                From Token: {{ctrl.orderDetail.fromToken}}<br/>
+                To Token: {{ctrl.orderDetail.toToken}}<br/>
+                Amount in: {{ctrl.orderDetail.amountIn}}<br/>
+                Amount out min: {{ctrl.orderDetail.amountOutMin}}<br/>
+                Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.recipient}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br />
+                Deadline: <span ng-bind="{{ctrl.orderDetail.deadline*1000}}|date"></span><br/>
+                Created at: <span ng-bind="{{ctrl.orderDetail.created*1000}}|date"></span><br/>
+                Cancelled: {{ctrl.orderDetail.cancelled}}<br/>
+                FilledAmount: {{ctrl.orderDetail.filledAmount}}
             </p>
 
-            <p ng-if="marginOrderDetail != null">
-                Hash: {{marginOrderDetail.hash}}<br/>
-                Trader: <a ng-href="{{ctrl.blockExplorer}}address/{{marginOrderDetail.trader}}" target="_blank">{{marginOrderDetail.trader}}</a><br/>
-                LoanId: {{marginOrderDetail.loanId}}<br/>
-                Leverage: {{marginOrderDetail.leverageAmount}}<br/>
-                Loan Token Address: <a ng-href="{{ctrl.blockExplorer}}address/{{marginOrderDetail.loanTokenAddress}}" target="_blank">{{marginOrderDetail.loanTokenAddress}}</a><br/>
-                Loan Token Sent: {{marginOrderDetail.loanTokenSent}}<br/>
-                Collateral Token Sent: {{marginOrderDetail.collateralTokenSent}}<br/>
-                Min Return: {{marginOrderDetail.minReturn}}<br/>
-                LoanDataBytes: {{marginOrderDetail.loanDataBytes}}<br/>
-                Deadline: <span ng-bind="{{marginOrderDetail.deadline*1000}}|date"></span><br/>
-                Created at: <span ng-bind="{{marginOrderDetail.createdTimestamp*1000}}|date"></span><br/>
+            <p ng-if="ctrl.marginOrderDetail != null">
+                Hash: {{ctrl.marginOrderDetail.hash}}<br/>
+                Trader: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.trader}}" target="_blank">{{ctrl.marginOrderDetail.trader}}</a><br/>
+                LoanId: {{ctrl.marginOrderDetail.loanId}}<br/>
+                Leverage: {{ctrl.marginOrderDetail.leverageAmount}}<br/>
+                Loan Token Address: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.loanTokenAddress}}" target="_blank">{{ctrl.marginOrderDetail.loanTokenAddress}}</a><br/>
+                Loan Token Sent: {{ctrl.marginOrderDetail.loanTokenSent}}<br/>
+                Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br/>
+                Min Return: {{ctrl.marginOrderDetail.minReturn}}<br/>
+                LoanDataBytes: {{ctrl.marginOrderDetail.loanDataBytes}}<br/>
+                Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline*1000}}|date"></span><br/>
+                Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp*1000}}|date"></span><br/>
                 Cancelled: {{orderDetail.cancelled}}<br />
                 FilledAmount: {{orderDetail.filledAmount}}
             </p>
