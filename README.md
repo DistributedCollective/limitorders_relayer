@@ -19,10 +19,8 @@ For every `fillOrder()` call, 0.2% fee of the amount sold is paid to the caller.
 $ cd limitorders_relayer
 $ yarn
 ```
-
-## Run
-
-1. Prepare accounts for relayers: create `src/secrets/accounts.ts` file contains relayers private keys as below format:
+4. Create directory logs and db
+5. Prepare accounts for relayers: create `src/secrets/accounts.ts` file contains relayers private keys as below format:
 ```
 export default {
     local: [],
@@ -36,8 +34,9 @@ export default {
 }
 ```
 
-2. ```shell script
-$ yarn start:mainnet
+## Run
+```shell script
+$ yarn start:[ŧestnet | mainnet]
 ```
 
 ## License
