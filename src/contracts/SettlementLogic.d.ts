@@ -27,6 +27,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "RBTC_ADDRESS()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "allCanceledHashes()": FunctionFragment;
+    "approveTokenLoan(address,address,uint256)": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
     "cancelMarginOrder((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
     "cancelOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
@@ -36,7 +37,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "deposit(address)": FunctionFragment;
     "fillMarginOrder(((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32)))": FunctionFragment;
     "fillMarginOrders(tuple[])": FunctionFragment;
-    "fillOrder(((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256,address[]))": FunctionFragment;
+    "fillOrder(((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256,uint256,address[]))": FunctionFragment;
     "fillOrders(tuple[])": FunctionFragment;
     "filledAmountInOfHash(bytes32)": FunctionFragment;
     "initialize(uint256,address,address,address,address)": FunctionFragment;
@@ -47,6 +48,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "owner()": FunctionFragment;
     "relayerFeePercent()": FunctionFragment;
     "setMinFee(uint256)": FunctionFragment;
+    "setRelayerFee(uint256)": FunctionFragment;
     "sovrynSwapNetwork()": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
     "withdraw(uint256)": FunctionFragment;
@@ -72,6 +74,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     functionFragment: "allCanceledHashes",
     values?: undefined
   ): string;
+  encodeFunctionData(
+    functionFragment: "approveTokenLoan",
+    values: [string, string, BigNumberish]
+  ): string;
   encodeFunctionData(functionFragment: "balanceOf", values: [string]): string;
   encodeFunctionData(
     functionFragment: "cancelMarginOrder",
@@ -84,7 +90,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -137,7 +143,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -160,7 +166,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -189,6 +195,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }
     ]
@@ -211,6 +218,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }[]
     ]
@@ -240,6 +248,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "setMinFee",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setRelayerFee",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -273,6 +285,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "allCanceledHashes",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "approveTokenLoan",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
@@ -329,6 +345,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "setMinFee", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "setRelayerFee",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "sovrynSwapNetwork",
     data: BytesLike
   ): Result;
@@ -348,6 +368,8 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "OrderCanceled(bytes32,address)": EventFragment;
     "OrderFilled(bytes32,address,uint256,uint256,address[])": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
+    "SetMinFee(address,uint256,uint256)": EventFragment;
+    "SetRelayerFee(address,uint256,uint256)": EventFragment;
     "Swap(address,address,uint256,uint256,address)": EventFragment;
     "Withdrawal(address,uint256)": EventFragment;
   };
@@ -361,6 +383,8 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "OrderCanceled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OrderFilled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetMinFee"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetRelayerFee"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Swap"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Withdrawal"): EventFragment;
 }
@@ -443,6 +467,22 @@ export type OwnershipTransferredEvent = TypedEvent<
   [string, string] & { previousOwner: string; newOwner: string }
 >;
 
+export type SetMinFeeEvent = TypedEvent<
+  [string, BigNumber, BigNumber] & {
+    sender: string;
+    oldValue: BigNumber;
+    newValue: BigNumber;
+  }
+>;
+
+export type SetRelayerFeeEvent = TypedEvent<
+  [string, BigNumber, BigNumber] & {
+    sender: string;
+    oldValue: BigNumber;
+    newValue: BigNumber;
+  }
+>;
+
 export type SwapEvent = TypedEvent<
   [string, string, BigNumber, BigNumber, string] & {
     _sourceToken: string;
@@ -511,6 +551,13 @@ export class SettlementLogic extends BaseContract {
 
     allCanceledHashes(overrides?: CallOverrides): Promise<[string[]]>;
 
+    approveTokenLoan(
+      loanToken: string,
+      asset: string,
+      amount: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<[BigNumber]>;
 
     cancelMarginOrder(
@@ -522,7 +569,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -588,7 +635,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -610,7 +657,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -638,6 +685,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       },
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -659,6 +707,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }[],
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -705,7 +754,12 @@ export class SettlementLogic extends BaseContract {
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     setMinFee(
-      fee: BigNumberish,
+      _minFee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
+    setRelayerFee(
+      _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -735,6 +789,13 @@ export class SettlementLogic extends BaseContract {
 
   allCanceledHashes(overrides?: CallOverrides): Promise<string[]>;
 
+  approveTokenLoan(
+    loanToken: string,
+    asset: string,
+    amount: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
   balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
   cancelMarginOrder(
@@ -746,7 +807,7 @@ export class SettlementLogic extends BaseContract {
       collateralTokenSent: BigNumberish;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumberish;
+      minEntryPrice: BigNumberish;
       loanDataBytes: BytesLike;
       deadline: BigNumberish;
       createdTimestamp: BigNumberish;
@@ -801,7 +862,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -823,7 +884,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -851,6 +912,7 @@ export class SettlementLogic extends BaseContract {
         s: BytesLike;
       };
       amountToFillIn: BigNumberish;
+      amountToFillOut: BigNumberish;
       path: string[];
     },
     overrides?: Overrides & { from?: string | Promise<string> }
@@ -872,6 +934,7 @@ export class SettlementLogic extends BaseContract {
         s: BytesLike;
       };
       amountToFillIn: BigNumberish;
+      amountToFillOut: BigNumberish;
       path: string[];
     }[],
     overrides?: Overrides & { from?: string | Promise<string> }
@@ -918,7 +981,12 @@ export class SettlementLogic extends BaseContract {
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
   setMinFee(
-    fee: BigNumberish,
+    _minFee: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
+  setRelayerFee(
+    _relayerFeePercent: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -948,6 +1016,13 @@ export class SettlementLogic extends BaseContract {
 
     allCanceledHashes(overrides?: CallOverrides): Promise<string[]>;
 
+    approveTokenLoan(
+      loanToken: string,
+      asset: string,
+      amount: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
     cancelMarginOrder(
@@ -959,7 +1034,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -1014,7 +1089,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1041,7 +1116,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1074,6 +1149,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       },
       overrides?: CallOverrides
@@ -1095,6 +1171,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }[],
       overrides?: CallOverrides
@@ -1140,7 +1217,12 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
-    setMinFee(fee: BigNumberish, overrides?: CallOverrides): Promise<void>;
+    setMinFee(_minFee: BigNumberish, overrides?: CallOverrides): Promise<void>;
+
+    setRelayerFee(
+      _relayerFeePercent: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
 
@@ -1384,6 +1466,42 @@ export class SettlementLogic extends BaseContract {
       { previousOwner: string; newOwner: string }
     >;
 
+    "SetMinFee(address,uint256,uint256)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    SetMinFee(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    "SetRelayerFee(address,uint256,uint256)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    SetRelayerFee(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
     "Swap(address,address,uint256,uint256,address)"(
       _sourceToken?: string | null,
       _targetToken?: string | null,
@@ -1446,6 +1564,13 @@ export class SettlementLogic extends BaseContract {
 
     allCanceledHashes(overrides?: CallOverrides): Promise<BigNumber>;
 
+    approveTokenLoan(
+      loanToken: string,
+      asset: string,
+      amount: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
     cancelMarginOrder(
@@ -1457,7 +1582,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -1515,7 +1640,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1537,7 +1662,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1565,6 +1690,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       },
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -1586,6 +1712,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }[],
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -1632,7 +1759,12 @@ export class SettlementLogic extends BaseContract {
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
     setMinFee(
-      fee: BigNumberish,
+      _minFee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    setRelayerFee(
+      _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -1663,6 +1795,13 @@ export class SettlementLogic extends BaseContract {
 
     allCanceledHashes(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    approveTokenLoan(
+      loanToken: string,
+      asset: string,
+      amount: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
     balanceOf(
       arg0: string,
       overrides?: CallOverrides
@@ -1677,7 +1816,7 @@ export class SettlementLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -1735,7 +1874,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1757,7 +1896,7 @@ export class SettlementLogic extends BaseContract {
           collateralTokenSent: BigNumberish;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumberish;
+          minEntryPrice: BigNumberish;
           loanDataBytes: BytesLike;
           deadline: BigNumberish;
           createdTimestamp: BigNumberish;
@@ -1785,6 +1924,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       },
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -1806,6 +1946,7 @@ export class SettlementLogic extends BaseContract {
           s: BytesLike;
         };
         amountToFillIn: BigNumberish;
+        amountToFillOut: BigNumberish;
         path: string[];
       }[],
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -1854,7 +1995,12 @@ export class SettlementLogic extends BaseContract {
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     setMinFee(
-      fee: BigNumberish,
+      _minFee: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setRelayerFee(
+      _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 

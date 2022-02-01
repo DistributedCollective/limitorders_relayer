@@ -36,7 +36,7 @@ export default {
 
 ## Run
 ```shell script
-$ yarn start:[ŧestnet | mainnet]
+$ yarn start:[testnet | mainnet]
 ```
 
 ## License

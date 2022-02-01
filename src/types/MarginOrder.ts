@@ -10,7 +10,7 @@ interface MarginOrder {
     collateralTokenSent: ethers.BigNumber;
     collateralTokenAddress: string;
     trader: string;
-    minReturn: ethers.BigNumber;
+    minEntryPrice: ethers.BigNumber;
     loanDataBytes: string;
     deadline: ethers.BigNumber;
     createdTimestamp: ethers.BigNumber;

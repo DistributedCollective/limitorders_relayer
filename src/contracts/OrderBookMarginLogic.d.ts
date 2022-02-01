@@ -57,7 +57,7 @@ interface OrderBookMarginLogicInterface extends ethers.utils.Interface {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -188,7 +188,7 @@ export type MarginOrderCreatedEvent = TypedEvent<
       collateralTokenSent: BigNumber;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumber;
+      minEntryPrice: BigNumber;
       loanDataBytes: string;
       deadline: BigNumber;
       createdTimestamp: BigNumber;
@@ -221,7 +221,7 @@ export type MarginOrderCreatedEvent = TypedEvent<
       collateralTokenSent: BigNumber;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumber;
+      minEntryPrice: BigNumber;
       loanDataBytes: string;
       deadline: BigNumber;
       createdTimestamp: BigNumber;
@@ -297,7 +297,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -338,7 +338,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -370,7 +370,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -451,7 +451,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumber;
+        minEntryPrice: BigNumber;
         loanDataBytes: string;
         deadline: BigNumber;
         createdTimestamp: BigNumber;
@@ -492,7 +492,7 @@ export class OrderBookMarginLogic extends BaseContract {
       collateralTokenSent: BigNumberish;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumberish;
+      minEntryPrice: BigNumberish;
       loanDataBytes: BytesLike;
       deadline: BigNumberish;
       createdTimestamp: BigNumberish;
@@ -532,7 +532,7 @@ export class OrderBookMarginLogic extends BaseContract {
       collateralTokenSent: BigNumber;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumber;
+      minEntryPrice: BigNumber;
       loanDataBytes: string;
       deadline: BigNumber;
       createdTimestamp: BigNumber;
@@ -609,7 +609,7 @@ export class OrderBookMarginLogic extends BaseContract {
       collateralTokenSent: BigNumber;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumber;
+      minEntryPrice: BigNumber;
       loanDataBytes: string;
       deadline: BigNumber;
       createdTimestamp: BigNumber;
@@ -650,7 +650,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -690,7 +690,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumber;
+        minEntryPrice: BigNumber;
         loanDataBytes: string;
         deadline: BigNumber;
         createdTimestamp: BigNumber;
@@ -765,7 +765,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumber;
+        minEntryPrice: BigNumber;
         loanDataBytes: string;
         deadline: BigNumber;
         createdTimestamp: BigNumber;
@@ -819,7 +819,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -853,7 +853,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -893,7 +893,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -927,7 +927,7 @@ export class OrderBookMarginLogic extends BaseContract {
           collateralTokenSent: BigNumber;
           collateralTokenAddress: string;
           trader: string;
-          minReturn: BigNumber;
+          minEntryPrice: BigNumber;
           loanDataBytes: string;
           deadline: BigNumber;
           createdTimestamp: BigNumber;
@@ -973,7 +973,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;
@@ -1065,7 +1065,7 @@ export class OrderBookMarginLogic extends BaseContract {
         collateralTokenSent: BigNumberish;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumberish;
+        minEntryPrice: BigNumberish;
         loanDataBytes: BytesLike;
         deadline: BigNumberish;
         createdTimestamp: BigNumberish;

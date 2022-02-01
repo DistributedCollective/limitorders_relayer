@@ -93,7 +93,7 @@ class Monitor {
                 collateralTokenSent: formatEther(raw.collateralTokenSent) + ' ' + (await collateralToken.symbol()),
                 collateralTokenAddress: raw.collateralTokenAddress,
                 trader: raw.trader,
-                minReturn: formatEther(raw.minReturn),
+                minEntryPrice: formatEther(raw.minEntryPrice),
                 loanDataBytes: raw.loanDataBytes,
                 deadline: raw.deadline.toNumber(),
                 createdTimestamp: raw.createdTimestamp.toNumber(),

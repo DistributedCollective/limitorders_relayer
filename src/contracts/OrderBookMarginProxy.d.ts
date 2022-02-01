@@ -203,7 +203,7 @@ export class OrderBookMarginProxy extends BaseContract {
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumber;
+        minEntryPrice: BigNumber;
         loanDataBytes: string;
         deadline: BigNumber;
         createdTimestamp: BigNumber;
@@ -290,7 +290,7 @@ export class OrderBookMarginProxy extends BaseContract {
       collateralTokenSent: BigNumber;
       collateralTokenAddress: string;
       trader: string;
-      minReturn: BigNumber;
+      minEntryPrice: BigNumber;
       loanDataBytes: string;
       deadline: BigNumber;
       createdTimestamp: BigNumber;
@@ -377,7 +377,7 @@ export class OrderBookMarginProxy extends BaseContract {
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
         trader: string;
-        minReturn: BigNumber;
+        minEntryPrice: BigNumber;
         loanDataBytes: string;
         deadline: BigNumber;
         createdTimestamp: BigNumber;

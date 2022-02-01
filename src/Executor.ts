@@ -41,8 +41,10 @@ const argsForOrder = async (order: Order, signer: ethers.Signer) => {
     const arg = {
         order,
         amountToFillIn: order.amountIn,
+        amountToFillOut: order.amountOutMin,
         path: path
     };
+    
     try {
         const gasLimit = await contract.estimateGas.fillOrder(arg);
         Log.d('gasLimit', Number(gasLimit));
