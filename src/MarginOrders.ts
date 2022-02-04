@@ -106,14 +106,14 @@ class MarginOrders {
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
 
-    static async getOrderSize(order: MarginOrder) : Promise<BigNumber> {
+    static async getOrderSize(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
         let orderSize: BigNumber = constants.Zero;
         if (order.collateralTokenSent.gt(constants.Zero)) {
             const amn = await Utils.convertUsdAmount(order.collateralTokenAddress, order.collateralTokenSent);
             orderSize = orderSize.add(amn);
         }
         if (order.loanTokenSent.gt(constants.Zero)) {
-            const loanContract = new Contract(order.loanTokenAddress, abiLoan);
+            const loanContract = new Contract(order.loanTokenAddress, abiLoan, provider);
             const loanAssetAdr = await loanContract.loanTokenAddress();
             const loanAmnUsd = await Utils.convertUsdAmount(loanAssetAdr, order.loanTokenSent);
             orderSize = orderSize.add(loanAmnUsd);

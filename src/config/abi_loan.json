@@ -1,14 +1,16 @@
 [
     {
+        "constant": true,
         "inputs": [],
         "name": "loanTokenAddress",
         "outputs": [
             {
-                "internalType": "string",
+                "internalType": "address",
                 "name": "",
-                "type": "string"
+                "type": "address"
             }
         ],
+        "payable": false,
         "stateMutability": "view",
         "type": "function"
     }

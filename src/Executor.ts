@@ -121,14 +121,14 @@ const getPrice = async (signer: ethers.Signer) => {
     return (await signer.getGasPrice()).mul(120).div(100);
 }
 
-const calculateProfit = async (order: BaseOrder, tx: ContractReceipt, orderInBatch: number, gasPrice: BigNumber) => {
+const calculateProfit = async (provider: ethers.providers.BaseProvider, order: BaseOrder, tx: ContractReceipt, orderInBatch: number, gasPrice: BigNumber) => {
     let orderSize;
 
     if ((order as Order).maker) {
         const limitOrder = order as Order;
         orderSize = await Utils.convertUsdAmount(limitOrder.fromToken, limitOrder.amountIn);
     } else {
-        orderSize = await MarginOrders.getOrderSize(order as MarginOrder);
+        orderSize = await MarginOrders.getOrderSize(order as MarginOrder, provider);
     }
     const profit = orderSize.mul(2).div(1000); // 0.2% fee
     const txFee = tx.gasUsed.mul(gasPrice).div(orderInBatch);
@@ -196,7 +196,7 @@ class Executor {
         for (const order of orders) {
             const added = await Db.orderModel.findOne({ hash: order.hash });
             if (added) continue;
-            const orderSize: BigNumber = await MarginOrders.getOrderSize(order);
+            const orderSize: BigNumber = await MarginOrders.getOrderSize(order, this.provider);
             if (orderSize.gt(config.minOrderSize)) {
                 executables.push(order);
             }
@@ -250,7 +250,7 @@ class Executor {
                     const receipt = await tx.wait();
                     console.log(receipt);
                     for (const order of batchOrders) {
-                        const profit = await calculateProfit(order, receipt, batchOrders.length, tx.gasPrice);
+                        const profit = await calculateProfit(this.provider, order, receipt, batchOrders.length, tx.gasPrice);
                         await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, 'success', profit);
                         Log.d(`profit of ${order.hash}: ${profit}$`);
                     }
