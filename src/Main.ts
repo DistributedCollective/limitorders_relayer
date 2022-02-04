@@ -139,7 +139,7 @@ const processMarginOrders = async () => {
     mainnet.provider.on("block", async blockNumber => {
         Log.d("block: " + blockNumber);
         // every 1 minute
-        if (blockNumber % 2 === 0) {
+        if (blockNumber % 1 === 0) {
             try {
                 await executor.matchMarginOrders(orders);
 
