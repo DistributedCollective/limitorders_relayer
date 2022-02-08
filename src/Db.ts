@@ -79,9 +79,10 @@ class DbCtrl {
 
     async updateFilledOrder(relayer: string, hash: string, txHash: string, status: string, profit: string) {
         try {
+            const old: any = await this.orderModel.findOne({ hash });
             return await this.orderModel.update({ hash }, {
                 relayer,
-                txHash,
+                txHash: txHash || old.txHash,
                 profit,
                 status,
             });
@@ -104,7 +105,7 @@ class DbCtrl {
             status: status || 'matched',
         };
         if (batchId) cond.batchId = batchId;
-        const list: any = await this.orderModel.find(cond);
+        const list: any = await this.orderModel.find(cond, { limit: 100 });
         return (list || []).map(item => {
             const json = JSON.parse(item.detail);
             return !!json.maker ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);

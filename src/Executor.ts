@@ -211,6 +211,7 @@ class Executor {
 
     async checkFillBatchOrders(net: RSK, type = 'limit', retryBatchId: string = null) {
         try {
+            console.log("Start checking for filling batch orders, type", type, new Date());
             const isLimitOrder = type == 'limit';
             let orders: BaseOrder[] = await Db.findMatchingOrders(type, {
                 batchId: retryBatchId,
@@ -222,6 +223,7 @@ class Executor {
             }
 
             const batches = _.chunk(orders, config.maxOrdersInBatch);
+            console.log(`processing ${orders.length} ${type} orders on ${batches.length} batches`);
             
             for (const batchOrders of batches) {
                 const signer = await net.getWallet();
@@ -232,6 +234,7 @@ class Executor {
 
                 const batchId = retryBatchId || Utils.getUuid();
                 await Db.updateOrdersStatus(batchOrders.map(order => order.hash), 'filling', batchId);
+                console.log(new Date(), 'batch:', batchId, batchOrders.map(order => order.hash))
 
                 const signerAdr = await signer.getAddress();
                 let fill: Promise<ContractTransaction>;
@@ -246,8 +249,11 @@ class Executor {
 
                 fill.then(async (tx) => {
                     console.log(tx);
-                    net.removeHash(batchId);
+                    for (const order of batchOrders) {
+                        await Db.updateFilledOrder(signerAdr, order.hash, tx.hash, 'filling', "");
+                    }
                     const receipt = await tx.wait();
+                    net.removeHash(batchId);
                     console.log(receipt);
                     for (const order of batchOrders) {
                         const profit = await calculateProfit(this.provider, order, receipt, batchOrders.length, tx.gasPrice);
@@ -266,7 +272,7 @@ class Executor {
                         await this.retryFillFailedOrders(batchOrders.map(order => order), net, isLimitOrder);
                     }
                 });
-                await Utils.wasteTime(10);
+                await Utils.wasteTime(3);
             }
 
 
@@ -284,13 +290,13 @@ class Executor {
 
         if (isLimitOrder) {
             await Promise.all([
-                this.checkFillBatchOrders(net, batchId1),
-                this.checkFillBatchOrders(net, batchId2)
+                this.checkFillBatchOrders(net, 'limit', batchId1),
+                this.checkFillBatchOrders(net, 'limit', batchId2)
             ]);
         } else {
             await Promise.all([
-                this.checkFillBatchOrders(net, batchId1),
-                this.checkFillBatchOrders(net, batchId2)
+                this.checkFillBatchOrders(net, 'margin', batchId1),
+                this.checkFillBatchOrders(net, 'margin', batchId2)
             ]);
         }
     }

@@ -75,7 +75,7 @@ const processLimitOrderes = async () => {
             pairs = latest.pairs;
         }
         // every 1 minute
-        if (blockNumber % 1 === 0) {
+        if (blockNumber % 2 === 0) {
             try {
                 const matched = await executor.match(tokens, pairs, orders, 10000);
                 Log.d("matched " + matched.length + " orders");
@@ -139,7 +139,7 @@ const processMarginOrders = async () => {
     mainnet.provider.on("block", async blockNumber => {
         Log.d("block: " + blockNumber);
         // every 1 minute
-        if (blockNumber % 1 === 0) {
+        if (blockNumber % 2 === 0) {
             try {
                 await executor.matchMarginOrders(orders);
 
