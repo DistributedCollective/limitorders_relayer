@@ -43,6 +43,7 @@ class Orders {
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
                             if (order.amountIn.eq(filledAmountIn)) return null;
+                            if (!this.validOrderParams(order)) return null;
                             return order;
                         })
                 )
@@ -104,6 +105,14 @@ class Orders {
             deadline: BigNumber.from(orderJSON.deadline),
             created: BigNumber.from(orderJSON.created),
         };
+    }
+
+    static validOrderParams(order: Order) {
+        const fromToken = order.fromToken.toLowerCase();
+        const toToken = order.toToken.toLowerCase();
+        const validFromToken = config.tokens.find(token => token.address.toLowerCase() == fromToken);
+        const validToToken = config.tokens.find(token => token.address.toLowerCase() == toToken);
+        return validFromToken != null && validToToken != null;
     }
 }
 

@@ -44,7 +44,7 @@ class RSK {
 
     async getNonce(adr: string) {
         const nrPending = this.getNrPending(adr);
-        const nonce = await this.provider.getTransactionCount(adr);
+        const nonce = await this.provider.getTransactionCount(adr, 'latest');
         return nonce + nrPending - 1;
     }
 }

@@ -16,4 +16,8 @@ export default {
     maxOrdersInBatch: 5,
     accounts: accounts.testnet,
     blockExplorer: "https://explorer.testnet.rsk.com/",
+    loanContracts: {
+        iXUSD: "0x9bd0ce087b14ef67c3d37c891139aae7d94a961a",
+        iRBTC: "0xe67fe227e0504e8e96a34c3594795756dc26e14b",
+    },
 };

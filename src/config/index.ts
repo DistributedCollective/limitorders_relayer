@@ -29,6 +29,7 @@ interface Config {
     maxOrdersInBatch: number;
     accounts: RelayerAccount[];
     blockExplorer: string;
+    loanContracts: { [x: string]: string };
 }
 
 export interface RelayerAccount {

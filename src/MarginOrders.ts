@@ -47,6 +47,7 @@ class MarginOrders {
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
                             if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
+                            if (!this.validOrderParams(order)) return null;
                             return order;
                         })
                 )
@@ -121,17 +122,28 @@ class MarginOrders {
         return orderSize;
     }
 
-  static parseOrder(json: any): MarginOrder {
-    return {
-        ...json,
-        leverageAmount: BigNumber.from(json.leverageAmount),
-        loanTokenSent: BigNumber.from(json.loanTokenSent),
-        collateralTokenSent: BigNumber.from(json.collateralTokenSent),
-        minEntryPrice: BigNumber.from(json.minEntryPrice),
-        deadline: BigNumber.from(json.deadline),
-        createdTimestamp: BigNumber.from(json.createdTimestamp),
-    };
-  }
+    static parseOrder(json: any): MarginOrder {
+        return {
+            ...json,
+            leverageAmount: BigNumber.from(json.leverageAmount),
+            loanTokenSent: BigNumber.from(json.loanTokenSent),
+            collateralTokenSent: BigNumber.from(json.collateralTokenSent),
+            minEntryPrice: BigNumber.from(json.minEntryPrice),
+            deadline: BigNumber.from(json.deadline),
+            createdTimestamp: BigNumber.from(json.createdTimestamp),
+        };
+    }
+
+    static validOrderParams(order: MarginOrder) {
+        const loanTokenAddress = order.loanTokenAddress.toLowerCase();
+        const collateralTokenAddress = order.collateralTokenAddress.toLowerCase();
+        const validLoanAdr = Object.values(config.loanContracts).find(adr => adr.toLowerCase() == loanTokenAddress);
+        const validCollToken = config.tokens.find(token => token.address.toLowerCase() == collateralTokenAddress);
+        if (!validLoanAdr || !validCollToken) {
+            console.log("margin order parmas invalid, hash", order.hash, order.loanTokenAddress);
+        }
+        return validLoanAdr != null && validCollToken != null;
+    }
 }
 
 export default MarginOrders;

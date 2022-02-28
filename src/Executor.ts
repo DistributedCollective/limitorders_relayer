@@ -289,15 +289,19 @@ class Executor {
         await Db.updateOrdersStatus(lastBatch.map(o => o.hash), 'retrying', batchId2);
 
         if (isLimitOrder) {
-            await Promise.all([
-                this.checkFillBatchOrders(net, 'limit', batchId1),
-                this.checkFillBatchOrders(net, 'limit', batchId2)
-            ]);
+            await new Promise(async (resolve) => {
+                this.checkFillBatchOrders(net, 'limit', batchId1)
+                await Utils.wasteTime(3);
+                this.checkFillBatchOrders(net, 'limit', batchId2);
+                resolve(true);
+            });
         } else {
-            await Promise.all([
-                this.checkFillBatchOrders(net, 'margin', batchId1),
-                this.checkFillBatchOrders(net, 'margin', batchId2)
-            ]);
+            await new Promise(async (resolve) => {
+                this.checkFillBatchOrders(net, 'margin', batchId1);
+                await Utils.wasteTime(3);
+                this.checkFillBatchOrders(net, 'margin', batchId2);
+                resolve(true);
+            });
         }
     }
 
