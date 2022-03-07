@@ -98,12 +98,12 @@
                 Loan Token Address: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.loanTokenAddress}}" target="_blank">{{ctrl.marginOrderDetail.loanTokenAddress}}</a><br/>
                 Loan Token Sent: {{ctrl.marginOrderDetail.loanTokenSent}}<br/>
                 Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br/>
-                Min Return: {{ctrl.marginOrderDetail.minReturn}}<br/>
+                Min Entry Price: {{ctrl.marginOrderDetail.minEntryPrice}}<br/>
                 LoanDataBytes: {{ctrl.marginOrderDetail.loanDataBytes}}<br/>
                 Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline*1000}}|date:'short'"></span><br/>
                 Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp*1000}}|date:'short'"></span><br/>
-                Cancelled: {{orderDetail.cancelled}}<br />
-                FilledAmount: {{orderDetail.filledAmount}}
+                Cancelled: {{ctrl.marginOrderDetail.cancelled}}<br />
+                FilledAmount: {{ctrl.marginOrderDetail.filledAmount}}
             </p>
         </div>
     </div>

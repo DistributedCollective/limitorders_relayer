@@ -6,12 +6,11 @@ import Log from "./Log";
 import { Utils } from "./Utils";
 import abiLoan from './config/abi_loan.json';
 
-const LIMIT = 20;
-
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
-const BLOCKS_PER_DAY = 6500;
+const LIMIT = 20;
+const BLOCKS_PER_DAY = 12000;
 
 class MarginOrders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
@@ -19,7 +18,6 @@ class MarginOrders {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const filter = settlement.filters.MarginOrderCanceled();
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
-        // return await settlement.allCanceledHashes();
     }
 
     private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {

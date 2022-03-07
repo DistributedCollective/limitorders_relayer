@@ -7,16 +7,16 @@ export default {
     serverPort: 4000,
     rpcNode: 'https://mainnet.sovryn.app/rpc',
     contracts: {
-        settlement: '0x4E19834396816398469585C7C0F6c5fd5DBFDA8b',
-        orderBook: '0x8316F90a73e14a4e3B87263f0fde575219d3c210',
-        orderBookMargin: '0x142397a33b79c97f13dC709DFE93fca39A7ba25e',
+        settlement: '0x0064237629be0B8eDc5D09De0cc897f443F66540',
+        orderBook: '0x0064237629be0B8eDc5D09De0cc897f443F66540',
+        orderBookMargin: '0xfb450793AFC52727fAd789dAE06E6ECF01cBBa61',
         sovrynSwap: '0x98ace08d2b759a265ae326f010496bcd63c15afc',
     },
     tokens: tokens,
-    minOrderSize: String(1000e18), //1000$ ~ 2$ fee
+    minOrderSize: String(10e18),
     maxOrdersInBatch: 5,
     accounts: accounts.main,
-    blockExplorer: "https://explorer.rsk.com/",
+    blockExplorer: "https://explorer.rsk.co/",
     loanContracts: {
         iXUSD: "0x8f77ecf69711a4b346f23109c40416be3dc7f129",
         iRBTC: "0xa9dcdc63eabb8a2b6f39d7ff9429d88340044a7a",

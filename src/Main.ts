@@ -26,11 +26,15 @@ export const start = async (io: IO.Server) => {
     Promise.all([
         processLimitOrderes(),
         processMarginOrders(),
-    ]).catch(e => Log.e(e));
+    ]).catch(e => {
+        Log.e(e)
+        console.trace();
+    });
 
     Monitor.init(mainnet);
     io.on('connection', (socket) => {
         socket.on('getAddresses', async (cb) => Monitor.getAddresses(cb));
+        socket.on('getNetworkData', async (cb) => Monitor.getNetworkData(cb));
         socket.on('getTotals', async (cb) => Monitor.getTotals(cb));
         socket.on('getLast24HTotals', async (cb) => Monitor.getTotals(cb, true));
         socket.on('getOrderDetail', async (hash, isMargin, cb) => Monitor.getOrderDetail(hash, isMargin, cb));
@@ -77,7 +81,7 @@ const processLimitOrderes = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                const matched = await executor.match(tokens, pairs, orders, 10000);
+                const matched = await executor.match(tokens, pairs, orders, 200000);
                 Log.d("matched " + matched.length + " orders");
                 matched.forEach(order => {
                     const aux = order.trade

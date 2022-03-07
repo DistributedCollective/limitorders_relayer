@@ -2,13 +2,22 @@ import { ethers, BigNumber } from "ethers";
 import { OrderBookSwapLogic__factory, SettlementLogic__factory } from "./contracts";
 import Order from "./types/Order";
 import config from "./config";
-
-const LIMIT = 20;
+import { Currency, Pair, Token } from "@sushiswap/sdk";
+import { Utils } from "./Utils";
+import Log from "./Log";
+import { formatEther, parseEther } from "ethers/lib/utils";
+import swapAbi from "./config/abi_sovrynSwap.json";
+import Db from "./Db";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
-const BLOCKS_PER_DAY = 6500;
+const LIMIT = 20;
+const BLOCKS_PER_DAY = 12000;
+
+const equalsCurrency = (currency1: Currency, currency2: Currency) => {
+    return currency1.name === currency2.name;
+}
 
 class Orders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
@@ -113,6 +122,99 @@ class Orders {
         const validFromToken = config.tokens.find(token => token.address.toLowerCase() == fromToken);
         const validToToken = config.tokens.find(token => token.address.toLowerCase() == toToken);
         return validFromToken != null && validToToken != null;
+    }
+
+    static async estimateOrderFee(provider: ethers.providers.BaseProvider, tokenIn: Token, amountIn: BigNumber): Promise<BigNumber> {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
+        const relayerFeePercent = await settlement.relayerFeePercent();
+        const swapOrderGas = await settlement.swapOrderGas();
+        const gasPrice = await Utils.getGasPrice(provider);
+        let orderFee = amountIn.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
+        let txFee = gasPrice.mul(swapOrderGas).mul(3).div(2);
+        const wrbtcAdr = Utils.getTokenAddress('wrbtc').toLowerCase();
+        // console.log('relayerFeePercent', Number(relayerFeePercent));
+        // console.log('swapOrderGas', Number(swapOrderGas));
+        // console.log('gasPrice', Number(gasPrice));
+        // console.log('orderFee', Number(orderFee));
+        // console.log('txFee', Number(txFee));
+
+        if (tokenIn.address.toLowerCase() != wrbtcAdr) {
+            const path = await swap.conversionPath(wrbtcAdr, tokenIn.address);
+            txFee = await swap.rateByPath(path, txFee);
+        }
+
+        if (orderFee.lt(txFee)) orderFee = txFee;
+        return orderFee;
+    }
+
+    static async checkTradable(provider: ethers.providers.BaseProvider, pairs: Pair[], tokenIn: Token, tokenOut: Token, amountIn: BigNumber, amountOutMin: BigNumber)
+    : Promise<boolean> 
+    {
+        let bestPair, bestAmountOut;
+        for (let i = 0; i < pairs.length; i++) {
+            const { token0, token1 } = pairs[i];
+            if (equalsCurrency(token0, tokenIn) && equalsCurrency(token1, tokenOut) ||
+                equalsCurrency(token0, tokenOut) && equalsCurrency(token1, tokenIn)
+            ) {
+                try {
+                    const estFee = await this.estimateOrderFee(provider, tokenIn, amountIn);
+                    if (amountIn.lt(estFee)) {
+                        Log.e("Order size's too small for relayer fee, amountIn:", formatEther(amountIn), tokenIn.name, 
+                            "est fee:", formatEther(estFee));
+                        continue;
+                    }
+
+                    const actualAmountIn = amountIn.sub(estFee);
+                    const amountOut = await Utils.convertTokenAmount(tokenIn.address, tokenOut.address, actualAmountIn);
+                    Log.d(
+                        'Orders.checkTradable: amountIn', formatEther(amountIn),
+                        '\n\tamountOut', formatEther(amountOut),
+                        '\n\testFee', formatEther(estFee), tokenIn.name,
+                        '\n\tprice', Number(amountOut) / Number(actualAmountIn)
+                    );
+                    if (amountOut.gte(amountOutMin) && (bestPair == null || amountOut.gt(bestAmountOut))) {
+                        bestPair = pairs[i];
+                        bestAmountOut = amountOut;
+                        Log.d(
+                            'Orders.checkTradable: amountIn', formatEther(amountIn), 
+                            '\n\tamountOut', formatEther(amountOut),
+                            '\n\testFee', formatEther(estFee), tokenIn.name,
+                            '\n\tprice', Number(amountOut)/Number(actualAmountIn)
+                        );
+                    }
+                } catch (error) {
+                    Log.e(error);
+                }
+            }
+        }
+
+        return bestPair != null;
+    };
+
+    static async argsForOrder (order: Order, signer: ethers.Signer) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
+        const swapContract = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, signer);
+        const fromToken = order.fromToken;
+        const toToken = order.toToken;
+        const path = await swapContract.conversionPath(fromToken, toToken);
+        const arg = {
+            order,
+            amountToFillIn: order.amountIn,
+            amountToFillOut: order.amountOutMin,
+            path: path
+        };
+
+        try {
+            const gasLimit = await contract.estimateGas.fillOrder(arg);
+            Log.d('gasLimit', Number(gasLimit));
+            return arg;
+        } catch (e) {
+            Log.w("  " + order.hash + " will revert");
+            Log.e(e);
+            await Db.updateFilledOrder(await signer.getAddress(), order.hash, '', 'failed', '');
+            return null;
+        }
     }
 }
 

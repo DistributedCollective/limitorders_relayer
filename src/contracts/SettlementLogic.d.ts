@@ -42,14 +42,21 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "filledAmountInOfHash(bytes32)": FunctionFragment;
     "initialize(uint256,address,address,address,address)": FunctionFragment;
     "isOwner()": FunctionFragment;
+    "marginOrderGas()": FunctionFragment;
     "minFee()": FunctionFragment;
+    "minMarginOrderSize()": FunctionFragment;
+    "minSwapOrderSize()": FunctionFragment;
     "orderBookAddress()": FunctionFragment;
     "orderBookMarginAddress()": FunctionFragment;
     "owner()": FunctionFragment;
     "relayerFeePercent()": FunctionFragment;
-    "setMinFee(uint256)": FunctionFragment;
+    "setMarginOrderGas(uint256)": FunctionFragment;
+    "setMinMarginOrderSize(uint256)": FunctionFragment;
+    "setMinSwapOrderSize(uint256)": FunctionFragment;
     "setRelayerFee(uint256)": FunctionFragment;
+    "setSwapOrderGas(uint256)": FunctionFragment;
     "sovrynSwapNetwork()": FunctionFragment;
+    "swapOrderGas()": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
     "withdraw(uint256)": FunctionFragment;
   };
@@ -232,7 +239,19 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     values: [BigNumberish, string, string, string, string]
   ): string;
   encodeFunctionData(functionFragment: "isOwner", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "marginOrderGas",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "minFee", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "minMarginOrderSize",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "minSwapOrderSize",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "orderBookAddress",
     values?: undefined
@@ -247,7 +266,15 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "setMinFee",
+    functionFragment: "setMarginOrderGas",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setMinMarginOrderSize",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setMinSwapOrderSize",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -255,7 +282,15 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "setSwapOrderGas",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "sovrynSwapNetwork",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "swapOrderGas",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -329,7 +364,19 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "marginOrderGas",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "minFee", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "minMarginOrderSize",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "minSwapOrderSize",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "orderBookAddress",
     data: BytesLike
@@ -343,13 +390,32 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     functionFragment: "relayerFeePercent",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "setMinFee", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "setMarginOrderGas",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setMinMarginOrderSize",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setMinSwapOrderSize",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "setRelayerFee",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setSwapOrderGas",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "sovrynSwapNetwork",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "swapOrderGas",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -361,15 +427,18 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   events: {
     "Deposit(address,uint256)": EventFragment;
     "FeeSplitTransferred(bytes32,address,uint256)": EventFragment;
-    "FeeTransferred(bytes32,address,uint256)": EventFragment;
+    "FeeTransferred(bytes32,address,uint256,address)": EventFragment;
     "MarginOrderCanceled(bytes32,address)": EventFragment;
     "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address)": EventFragment;
     "MarginTrade(address,address,uint256,uint256,uint256,uint256,address)": EventFragment;
     "OrderCanceled(bytes32,address)": EventFragment;
     "OrderFilled(bytes32,address,uint256,uint256,address[])": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
-    "SetMinFee(address,uint256,uint256)": EventFragment;
+    "SetMarginOrderGas(address,uint256,uint256)": EventFragment;
+    "SetMinMarginOrderSize(address,uint256,uint256)": EventFragment;
+    "SetMinSwapOrderSize(address,uint256,uint256)": EventFragment;
     "SetRelayerFee(address,uint256,uint256)": EventFragment;
+    "SetSwapOrderGas(address,uint256,uint256)": EventFragment;
     "Swap(address,address,uint256,uint256,address)": EventFragment;
     "Withdrawal(address,uint256)": EventFragment;
   };
@@ -383,8 +452,11 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "OrderCanceled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OrderFilled"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
-  getEvent(nameOrSignatureOrTopic: "SetMinFee"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetMarginOrderGas"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetMinMarginOrderSize"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetMinSwapOrderSize"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "SetRelayerFee"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetSwapOrderGas"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Swap"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Withdrawal"): EventFragment;
 }
@@ -402,10 +474,11 @@ export type FeeSplitTransferredEvent = TypedEvent<
 >;
 
 export type FeeTransferredEvent = TypedEvent<
-  [string, string, BigNumber] & {
+  [string, string, BigNumber, string] & {
     hash: string;
     recipient: string;
     amount: BigNumber;
+    token: string;
   }
 >;
 
@@ -467,7 +540,23 @@ export type OwnershipTransferredEvent = TypedEvent<
   [string, string] & { previousOwner: string; newOwner: string }
 >;
 
-export type SetMinFeeEvent = TypedEvent<
+export type SetMarginOrderGasEvent = TypedEvent<
+  [string, BigNumber, BigNumber] & {
+    sender: string;
+    oldValue: BigNumber;
+    newValue: BigNumber;
+  }
+>;
+
+export type SetMinMarginOrderSizeEvent = TypedEvent<
+  [string, BigNumber, BigNumber] & {
+    sender: string;
+    oldValue: BigNumber;
+    newValue: BigNumber;
+  }
+>;
+
+export type SetMinSwapOrderSizeEvent = TypedEvent<
   [string, BigNumber, BigNumber] & {
     sender: string;
     oldValue: BigNumber;
@@ -476,6 +565,14 @@ export type SetMinFeeEvent = TypedEvent<
 >;
 
 export type SetRelayerFeeEvent = TypedEvent<
+  [string, BigNumber, BigNumber] & {
+    sender: string;
+    oldValue: BigNumber;
+    newValue: BigNumber;
+  }
+>;
+
+export type SetSwapOrderGasEvent = TypedEvent<
   [string, BigNumber, BigNumber] & {
     sender: string;
     oldValue: BigNumber;
@@ -740,7 +837,13 @@ export class SettlementLogic extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<[boolean]>;
 
+    marginOrderGas(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     minFee(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    minMarginOrderSize(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    minSwapOrderSize(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<[string]>;
 
@@ -753,8 +856,18 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
 
-    setMinFee(
-      _minFee: BigNumberish,
+    setMarginOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
+    setMinMarginOrderSize(
+      _minMarginOrderSize: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
+    setMinSwapOrderSize(
+      _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -763,7 +876,14 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    setSwapOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<[string]>;
+
+    swapOrderGas(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -967,7 +1087,13 @@ export class SettlementLogic extends BaseContract {
    */
   isOwner(overrides?: CallOverrides): Promise<boolean>;
 
+  marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
+
   minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
+  minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+  minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
   orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
@@ -980,8 +1106,18 @@ export class SettlementLogic extends BaseContract {
 
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
-  setMinFee(
-    _minFee: BigNumberish,
+  setMarginOrderGas(
+    _newGas: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
+  setMinMarginOrderSize(
+    _minMarginOrderSize: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
+  setMinSwapOrderSize(
+    _minSwapOrderSize: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -990,7 +1126,14 @@ export class SettlementLogic extends BaseContract {
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  setSwapOrderGas(
+    _newGas: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
   sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
+
+  swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
   /**
    * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -1204,7 +1347,13 @@ export class SettlementLogic extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<boolean>;
 
+    marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
+
     minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
@@ -1217,14 +1366,34 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
-    setMinFee(_minFee: BigNumberish, overrides?: CallOverrides): Promise<void>;
+    setMarginOrderGas(
+      _newGas: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setMinMarginOrderSize(
+      _minMarginOrderSize: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setMinSwapOrderSize(
+      _minSwapOrderSize: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     setRelayerFee(
       _relayerFeePercent: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    setSwapOrderGas(
+      _newGas: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
+
+    swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -1266,22 +1435,24 @@ export class SettlementLogic extends BaseContract {
       { hash: string; recipient: string; amount: BigNumber }
     >;
 
-    "FeeTransferred(bytes32,address,uint256)"(
+    "FeeTransferred(bytes32,address,uint256,address)"(
       hash?: BytesLike | null,
       recipient?: string | null,
-      amount?: null
+      amount?: null,
+      token?: null
     ): TypedEventFilter<
-      [string, string, BigNumber],
-      { hash: string; recipient: string; amount: BigNumber }
+      [string, string, BigNumber, string],
+      { hash: string; recipient: string; amount: BigNumber; token: string }
     >;
 
     FeeTransferred(
       hash?: BytesLike | null,
       recipient?: string | null,
-      amount?: null
+      amount?: null,
+      token?: null
     ): TypedEventFilter<
-      [string, string, BigNumber],
-      { hash: string; recipient: string; amount: BigNumber }
+      [string, string, BigNumber, string],
+      { hash: string; recipient: string; amount: BigNumber; token: string }
     >;
 
     "MarginOrderCanceled(bytes32,address)"(
@@ -1466,7 +1637,7 @@ export class SettlementLogic extends BaseContract {
       { previousOwner: string; newOwner: string }
     >;
 
-    "SetMinFee(address,uint256,uint256)"(
+    "SetMarginOrderGas(address,uint256,uint256)"(
       sender?: string | null,
       oldValue?: null,
       newValue?: null
@@ -1475,7 +1646,43 @@ export class SettlementLogic extends BaseContract {
       { sender: string; oldValue: BigNumber; newValue: BigNumber }
     >;
 
-    SetMinFee(
+    SetMarginOrderGas(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    "SetMinMarginOrderSize(address,uint256,uint256)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    SetMinMarginOrderSize(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    "SetMinSwapOrderSize(address,uint256,uint256)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    SetMinSwapOrderSize(
       sender?: string | null,
       oldValue?: null,
       newValue?: null
@@ -1494,6 +1701,24 @@ export class SettlementLogic extends BaseContract {
     >;
 
     SetRelayerFee(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    "SetSwapOrderGas(address,uint256,uint256)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, BigNumber, BigNumber],
+      { sender: string; oldValue: BigNumber; newValue: BigNumber }
+    >;
+
+    SetSwapOrderGas(
       sender?: string | null,
       oldValue?: null,
       newValue?: null
@@ -1745,7 +1970,13 @@ export class SettlementLogic extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<BigNumber>;
 
+    marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
+
     minFee(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1758,8 +1989,18 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
-    setMinFee(
-      _minFee: BigNumberish,
+    setMarginOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    setMinMarginOrderSize(
+      _minMarginOrderSize: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    setMinSwapOrderSize(
+      _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -1768,7 +2009,14 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    setSwapOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<BigNumber>;
+
+    swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -1979,7 +2227,15 @@ export class SettlementLogic extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    marginOrderGas(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     minFee(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    minMarginOrderSize(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    minSwapOrderSize(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -1994,8 +2250,18 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    setMinFee(
-      _minFee: BigNumberish,
+    setMarginOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setMinMarginOrderSize(
+      _minMarginOrderSize: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setMinSwapOrderSize(
+      _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -2004,7 +2270,14 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    setSwapOrderGas(
+      _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    swapOrderGas(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.

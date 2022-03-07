@@ -1,10 +1,11 @@
-import { BigNumber, Contract } from "ethers";
+import { BigNumber, Contract, ethers } from "ethers";
 import config from "./config";
 import RSK from "./RSK";
 import swapAbi from "./config/abi_sovrynSwap.json";
 import erc20Abi from "./config/abi_erc20.json";
 import Log from "./Log";
 import TokenEntry from "./types/TokenEntry";
+import { Token } from "@sushiswap/sdk";
 
 export class Utils {
     static formatDate(date) {
@@ -62,4 +63,12 @@ export class Utils {
     static async wasteTime(seconds) {
         await new Promise(resolve => setTimeout(resolve, seconds * 1000));
     }
+
+    static async getGasPrice(signer: ethers.Signer | ethers.providers.Provider) {
+        return (await signer.getGasPrice()).mul(120).div(100);
+    }
+
+    static findToken (tokens: Token[], tokenAddress: string) {
+        return tokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase());
+    };
 }

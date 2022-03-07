@@ -2,14 +2,14 @@
 
 class Log {
     static d(...value: any) {
-        console.log("  ", ...value);
+        console.log(new Date(), "  ", ...value);
     }
     static w(...value: any) {
-        console.warn("  ", ...value);
+        console.warn(new Date(), "  ", ...value);
     }
 
     static e(...value: any) {
-        console.error("  ", ...value);
+        console.error(new Date(), "  ", ...value);
     }
 }
 
