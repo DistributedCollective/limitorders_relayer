@@ -81,20 +81,24 @@ const processLimitOrderes = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                const matched = await executor.match(tokens, pairs, orders, 200000);
-                Log.d("matched " + matched.length + " orders");
-                matched.forEach(order => {
-                    const aux = order.trade
-                        ? " at " +
-                          order.trade?.executionPrice.toFixed(8) +
-                          " " +
-                          order.trade.route.path[order.trade.route.path.length - 1].symbol +
-                          "/" +
-                          order.trade.route.path[0].symbol
-                        : "";
-                    Log.d("  " + order.hash + aux);
-                });
-                await executor.checkFillBatchOrders(mainnet, 'limit');
+                await Promise.all([
+                    (async () => {
+                        const matched = await executor.match(tokens, pairs, orders, 200000);
+                        Log.d("matched " + matched.length + " orders");
+                        matched.forEach(order => {
+                            const aux = order.trade
+                                ? " at " +
+                                order.trade?.executionPrice.toFixed(8) +
+                                " " +
+                                order.trade.route.path[order.trade.route.path.length - 1].symbol +
+                                "/" +
+                                order.trade.route.path[0].symbol
+                                : "";
+                            Log.d("  " + order.hash + aux);
+                        });
+                    })(),
+                    executor.checkFillBatchOrders(mainnet, 'limit')
+                ]);
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
@@ -109,6 +113,7 @@ const processLimitOrderes = async () => {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
                 orders.splice(index, 1);
+                await Db.updateOrdersStatus([hash], 'filled_by_another');
             }
         }
     });
@@ -145,9 +150,10 @@ const processMarginOrders = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                await executor.matchMarginOrders(orders);
-
-                await executor.checkFillBatchOrders(mainnet, 'margin');
+                await Promise.all([
+                    executor.matchMarginOrders(orders),
+                    executor.checkFillBatchOrders(mainnet, 'margin')
+                ]);
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
@@ -162,6 +168,7 @@ const processMarginOrders = async () => {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
                 orders.splice(index, 1);
+                await Db.updateOrdersStatus([hash], 'filled_by_another');
             }
         }
     });

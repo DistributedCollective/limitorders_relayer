@@ -18,6 +18,7 @@ interface MarginOrder {
     r: string;
     s: string;
     trade?: Trade;
+    loanAssetAdr?: string;
 }
 
 export default MarginOrder;

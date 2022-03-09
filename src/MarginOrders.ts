@@ -5,12 +5,15 @@ import config from "./config";
 import Log from "./Log";
 import { Utils } from "./Utils";
 import abiLoan from './config/abi_loan.json';
+import swapAbi from "./config/abi_sovrynSwap.json";
+import Db from "./Db";
+import { formatEther, parseEther } from "ethers/lib/utils";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
 const LIMIT = 20;
-const BLOCKS_PER_DAY = 12000;
+const BLOCKS_PER_DAY = 20000;
 
 class MarginOrders {
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
@@ -105,19 +108,33 @@ class MarginOrders {
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
 
-    static async getOrderSize(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
-        let orderSize: BigNumber = constants.Zero;
-        if (order.collateralTokenSent.gt(constants.Zero)) {
-            const amn = await Utils.convertUsdAmount(order.collateralTokenAddress, order.collateralTokenSent);
-            orderSize = orderSize.add(amn);
-        }
-        if (order.loanTokenSent.gt(constants.Zero)) {
+    static async checkLoanAdr(order: MarginOrder, provider: ethers.providers.BaseProvider) {
+        if (!order.loanAssetAdr) {
             const loanContract = new Contract(order.loanTokenAddress, abiLoan, provider);
-            const loanAssetAdr = await loanContract.loanTokenAddress();
-            const loanAmnUsd = await Utils.convertUsdAmount(loanAssetAdr, order.loanTokenSent);
-            orderSize = orderSize.add(loanAmnUsd);
+            order.loanAssetAdr = await loanContract.loanTokenAddress();
         }
-        return orderSize;
+        return order.loanAssetAdr;
+    }
+
+    /**
+     * return total deposited amount in loan token
+     */
+    static async getTotalDeposited(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
+        let totalDeposited: BigNumber = order.loanTokenSent;
+        const loanAssetAdr = await this.checkLoanAdr(order, provider);
+
+        if (order.collateralTokenSent.gt(constants.Zero)) {
+            const amn = await Utils.convertTokenAmount(order.collateralTokenAddress, loanAssetAdr, order.collateralTokenSent);
+            totalDeposited = totalDeposited.add(amn);
+        }
+        return totalDeposited;
+    }
+
+    static async getOrderSize(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
+        const loanAssetAdr = await this.checkLoanAdr(order, provider);
+        const totalDeposited = await this.getTotalDeposited(order, provider);
+        const orderSizeInUsd = await Utils.convertUsdAmount(loanAssetAdr, totalDeposited);
+        return orderSizeInUsd;
     }
 
     static parseOrder(json: any): MarginOrder {
@@ -141,6 +158,50 @@ class MarginOrders {
             console.log("margin order parmas invalid, hash", order.hash, order.loanTokenAddress);
         }
         return validLoanAdr != null && validCollToken != null;
+    }
+
+    static async estimateOrderFee(provider: ethers.providers.BaseProvider, orderSizeUsd: BigNumber) {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
+        const relayerFeePercent = await settlement.relayerFeePercent();
+        const marginOrderGas = await settlement.marginOrderGas();
+        const gasPrice = await Utils.getGasPrice(provider);
+        let orderFee = orderSizeUsd.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
+        let txFee = gasPrice.mul(marginOrderGas).mul(3).div(2);
+        const path = await swap.conversionPath(Utils.getTokenAddress('wrbtc'), Utils.getTokenAddress('xusd'));
+        const txFeeUsd = await swap.rateByPath(path, txFee);
+
+        if (orderFee.lt(txFeeUsd)) return txFeeUsd;
+        return orderFee;
+    }
+
+    static async checkTradable(provider: ethers.providers.BaseProvider, order: MarginOrder) {
+        const totalDeposited = await this.getTotalDeposited(order, provider);
+        const orderSize = await Utils.convertUsdAmount(order.loanAssetAdr, totalDeposited);
+        const estFee = await this.estimateOrderFee(provider, orderSize);
+        if (orderSize.lt(estFee)) {
+            Log.e("Margin order size's too small for relayer fee, order size:", formatEther(orderSize) + '$,',
+                "est fee:", formatEther(estFee) + '$');
+            await Db.addMarginOrder(order, { status: 'failed_smallOrder' })
+            return false;
+        }
+
+        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
+        const collPath = await swap.conversionPath(order.loanAssetAdr, order.collateralTokenAddress);
+        const collAmount = await swap.rateByPath(collPath, totalDeposited);
+        const curPrice = BigNumber.from(collAmount).mul(ethers.constants.WeiPerEther).div(totalDeposited);
+
+        const loanSymb = Utils.getTokenSymbol(order.loanAssetAdr);
+        const collSymb = Utils.getTokenSymbol(order.collateralTokenAddress);
+        Log.d(
+            'MarginOrders.checkTradable: hash', order.hash,
+            '\n\t orderSize', formatEther(orderSize) + '$',
+            '\n\t totalDeposited', formatEther(totalDeposited), loanSymb,
+            '\n\t estFee', formatEther(estFee) + '$',
+            '\n\t curPrice', formatEther(curPrice), loanSymb + '/' + collSymb,
+            '\n\t minEntryPrice', formatEther(order.minEntryPrice), loanSymb + '/' + collSymb,
+        );
+        return orderSize.gt(config.minOrderSize) && curPrice.gte(order.minEntryPrice);
     }
 }
 

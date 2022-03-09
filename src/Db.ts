@@ -43,14 +43,14 @@ class DbCtrl {
         }
     }
 
-    async addOrder(order: Order) {
+    async addOrder(order: Order, { status = 'matched'} = {}) {
         try {
             const exists = await this.orderModel.findOne({ hash: order.hash });
             if (exists) return null;
 
             return await this.orderModel.insert({
                 hash: order.hash,
-                status: 'matched',
+                status: status || 'matched',
                 type: 'limit',
                 owner: order.maker,
                 detail: JSON.stringify({ ...order, trade: undefined })
@@ -60,14 +60,14 @@ class DbCtrl {
         }
     }
 
-    async addMarginOrder(order: MarginOrder) {
+    async addMarginOrder(order: MarginOrder, { status = 'matched' } = {}) {
         try {
             const exists = await this.orderModel.findOne({ hash: order.hash });
             if (exists) return null;
 
             return await this.orderModel.insert({
                 hash: order.hash,
-                status: 'matched',
+                status: status || 'matched',
                 type: 'margin',
                 owner: order.trader,
                 detail: JSON.stringify(order)

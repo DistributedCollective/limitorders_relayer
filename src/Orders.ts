@@ -13,7 +13,7 @@ export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
 const LIMIT = 20;
-const BLOCKS_PER_DAY = 12000;
+const BLOCKS_PER_DAY = 20000;
 
 const equalsCurrency = (currency1: Currency, currency2: Currency) => {
     return currency1.name === currency2.name;
@@ -133,24 +133,21 @@ class Orders {
         let orderFee = amountIn.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
         let txFee = gasPrice.mul(swapOrderGas).mul(3).div(2);
         const wrbtcAdr = Utils.getTokenAddress('wrbtc').toLowerCase();
-        // console.log('relayerFeePercent', Number(relayerFeePercent));
-        // console.log('swapOrderGas', Number(swapOrderGas));
-        // console.log('gasPrice', Number(gasPrice));
-        // console.log('orderFee', Number(orderFee));
-        // console.log('txFee', Number(txFee));
 
         if (tokenIn.address.toLowerCase() != wrbtcAdr) {
             const path = await swap.conversionPath(wrbtcAdr, tokenIn.address);
             txFee = await swap.rateByPath(path, txFee);
         }
 
-        if (orderFee.lt(txFee)) orderFee = txFee;
+        if (orderFee.lt(txFee)) return txFee;
         return orderFee;
     }
 
-    static async checkTradable(provider: ethers.providers.BaseProvider, pairs: Pair[], tokenIn: Token, tokenOut: Token, amountIn: BigNumber, amountOutMin: BigNumber)
+    static async checkTradable(provider: ethers.providers.BaseProvider, pairs: Pair[], tokenIn: Token, tokenOut: Token, order: Order)
     : Promise<boolean> 
     {
+        let amountIn = order.amountIn;
+        let amountOutMin = order.amountOutMin;
         let bestPair, bestAmountOut;
         for (let i = 0; i < pairs.length; i++) {
             const { token0, token1 } = pairs[i];
@@ -160,28 +157,25 @@ class Orders {
                 try {
                     const estFee = await this.estimateOrderFee(provider, tokenIn, amountIn);
                     if (amountIn.lt(estFee)) {
-                        Log.e("Order size's too small for relayer fee, amountIn:", formatEther(amountIn), tokenIn.name, 
+                        Log.e("Order size's too small for relayer fee, hash", order.hash, ", amountIn:", formatEther(amountIn), tokenIn.name, 
                             "est fee:", formatEther(estFee));
+                        await Db.addOrder(order, { status: 'failed_smallOrder' })
                         continue;
                     }
 
                     const actualAmountIn = amountIn.sub(estFee);
                     const amountOut = await Utils.convertTokenAmount(tokenIn.address, tokenOut.address, actualAmountIn);
                     Log.d(
-                        'Orders.checkTradable: amountIn', formatEther(amountIn),
+                        'Orders.checkTradable: hash', order.hash,
+                        '\n\tamountIn', formatEther(amountIn),
                         '\n\tamountOut', formatEther(amountOut),
+                        '\n\tamountOutMin', formatEther(amountOutMin),
                         '\n\testFee', formatEther(estFee), tokenIn.name,
-                        '\n\tprice', Number(amountOut) / Number(actualAmountIn)
+                        '\n\tprice', Number(amountOut) / Number(actualAmountIn), tokenIn.name + '/' + tokenOut.name
                     );
                     if (amountOut.gte(amountOutMin) && (bestPair == null || amountOut.gt(bestAmountOut))) {
                         bestPair = pairs[i];
                         bestAmountOut = amountOut;
-                        Log.d(
-                            'Orders.checkTradable: amountIn', formatEther(amountIn), 
-                            '\n\tamountOut', formatEther(amountOut),
-                            '\n\testFee', formatEther(estFee), tokenIn.name,
-                            '\n\tprice', Number(amountOut)/Number(actualAmountIn)
-                        );
                     }
                 } catch (error) {
                     Log.e(error);

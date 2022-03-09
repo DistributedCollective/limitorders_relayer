@@ -124,14 +124,12 @@ class Executor {
             const toToken = Utils.findToken(tokens, order.toToken);
             const filledAmountIn = await this.filledAmountIn(order.hash);
             if (fromToken && toToken && order.deadline.toNumber() * 1000 >= now && filledAmountIn.lt(order.amountIn)) {
-                Log.d('checking order', order.hash);
                 const tradable = await Orders.checkTradable(
                     this.provider,
                     pairs,
                     fromToken,
                     toToken,
-                    order.amountIn,
-                    order.amountOutMin
+                    order,
                 );
                 const orderSize = await Utils.convertUsdAmount(order.fromToken, order.amountIn);
                 if (tradable && orderSize.gt(config.minOrderSize)) {
@@ -154,8 +152,9 @@ class Executor {
         for (const order of orders) {
             const added = await Db.orderModel.findOne({ hash: order.hash });
             if (added) continue;
-            const orderSize: BigNumber = await MarginOrders.getOrderSize(order, this.provider);
-            if (orderSize.gt(config.minOrderSize)) {
+
+            const tradable = await MarginOrders.checkTradable(this.provider, order);
+            if (tradable) {
                 executables.push(order);
             }
         }
