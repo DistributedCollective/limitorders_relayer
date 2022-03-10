@@ -4,11 +4,11 @@ import accounts from '../secrets/accounts';
 export default {
     rpcNode: 'https://testnet.sovryn.app/rpc',
     db: 'limitorders_relayer_test.db',
-    serverPort: 3000,
+    serverPort: 3030,
     contracts: {
-        settlement: '0x71b6Cf2D323661d747F0b302022543545ea5Ac15',
-        orderBook: '0xD9b871dB60080cD94aa49256ef43d4f5CA89980f',
-        orderBookMargin: '0xa6D1602E35599CdCAFB7115607C5e7572355eca9',
+        settlement: '0xE97539b54a8a71597A0313c0cfE2CE7672d18eF8',
+        orderBook: '0x7E174425b18cC76838A879607E18C5d9e65fE79c',
+        orderBookMargin: '0x5c98Ec8291bfAD27Db2fC4366f1531d715D5094D',
         sovrynSwap: '0x61172b53423e205a399640e5283e51fe60ec2256',
     },
     tokens: tokens,

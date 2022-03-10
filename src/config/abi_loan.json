@@ -13,5 +13,51 @@
         "payable": false,
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "leverageAmount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "loanTokenSent",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "collateralTokenSent",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "collateralTokenAddress",
+                "type": "address"
+            }
+        ],
+        "name": "getEstimatedMarginDetails",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "principal",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "collateral",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "interestRate",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
     }
 ]

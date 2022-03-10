@@ -6,6 +6,7 @@ import Log from "./Log";
 import { Utils } from "./Utils";
 import abiLoan from './config/abi_loan.json';
 import swapAbi from "./config/abi_sovrynSwap.json";
+import loanAbi from "./config/abi_loan.json";
 import Db from "./Db";
 import { formatEther, parseEther } from "ethers/lib/utils";
 
@@ -187,9 +188,18 @@ class MarginOrders {
         }
 
         const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
+        const loanContract = new ethers.Contract(order.loanTokenAddress, loanAbi, provider);
+        const { principal } = await loanContract.getEstimatedMarginDetails(
+            order.leverageAmount,
+            order.loanTokenSent,
+            order.collateralTokenSent,
+            order.collateralTokenAddress
+        );
+        const loanTokenSent = order.loanTokenSent.add(principal);
+
         const collPath = await swap.conversionPath(order.loanAssetAdr, order.collateralTokenAddress);
-        const collAmount = await swap.rateByPath(collPath, totalDeposited);
-        const curPrice = BigNumber.from(collAmount).mul(ethers.constants.WeiPerEther).div(totalDeposited);
+        const collAmount = await swap.rateByPath(collPath, loanTokenSent);
+        const curPrice = BigNumber.from(collAmount).mul(ethers.constants.WeiPerEther).div(loanTokenSent);
 
         const loanSymb = Utils.getTokenSymbol(order.loanAssetAdr);
         const collSymb = Utils.getTokenSymbol(order.collateralTokenAddress);
