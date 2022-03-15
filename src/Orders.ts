@@ -128,10 +128,8 @@ class Orders {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
         const relayerFeePercent = await settlement.relayerFeePercent();
-        const swapOrderGas = await settlement.swapOrderGas();
-        const gasPrice = await Utils.getGasPrice(provider);
+        let txFee = await settlement.minSwapOrderTxFee();
         let orderFee = amountIn.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
-        let txFee = gasPrice.mul(swapOrderGas).mul(3).div(2);
         const wrbtcAdr = Utils.getTokenAddress('wrbtc').toLowerCase();
 
         if (tokenIn.address.toLowerCase() != wrbtcAdr) {

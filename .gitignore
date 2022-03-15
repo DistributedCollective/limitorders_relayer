@@ -1,6 +1,4 @@
-node_modules
+src/secrets
+node_modules/
 dist
-.env
-src/deployments/localhost
-db/
-secrets
+db

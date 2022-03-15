@@ -31,10 +31,10 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
     "getImplementation()": FunctionFragment;
     "getProxyOwner()": FunctionFragment;
     "isOwner()": FunctionFragment;
-    "marginOrderGas()": FunctionFragment;
-    "minFee()": FunctionFragment;
     "minMarginOrderSize()": FunctionFragment;
+    "minMarginOrderTxFee()": FunctionFragment;
     "minSwapOrderSize()": FunctionFragment;
+    "minSwapOrderTxFee()": FunctionFragment;
     "orderBookAddress()": FunctionFragment;
     "orderBookMarginAddress()": FunctionFragment;
     "owner()": FunctionFragment;
@@ -42,7 +42,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
     "setImplementation(address)": FunctionFragment;
     "setProxyOwner(address)": FunctionFragment;
     "sovrynSwapNetwork()": FunctionFragment;
-    "swapOrderGas()": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
   };
 
@@ -81,16 +80,19 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "isOwner", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "marginOrderGas",
-    values?: undefined
-  ): string;
-  encodeFunctionData(functionFragment: "minFee", values?: undefined): string;
-  encodeFunctionData(
     functionFragment: "minMarginOrderSize",
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "minMarginOrderTxFee",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "minSwapOrderSize",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "minSwapOrderTxFee",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -116,10 +118,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "sovrynSwapNetwork",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "swapOrderGas",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -162,16 +160,19 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "isOwner", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "marginOrderGas",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(functionFragment: "minFee", data: BytesLike): Result;
-  decodeFunctionResult(
     functionFragment: "minMarginOrderSize",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "minMarginOrderTxFee",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "minSwapOrderSize",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "minSwapOrderTxFee",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -197,10 +198,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "sovrynSwapNetwork",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "swapOrderGas",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -308,13 +305,13 @@ export class SettlementProxy extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<[boolean]>;
 
-    marginOrderGas(overrides?: CallOverrides): Promise<[BigNumber]>;
-
-    minFee(overrides?: CallOverrides): Promise<[BigNumber]>;
-
     minMarginOrderSize(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    minMarginOrderTxFee(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     minSwapOrderSize(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    minSwapOrderTxFee(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<[string]>;
 
@@ -347,8 +344,6 @@ export class SettlementProxy extends BaseContract {
     ): Promise<ContractTransaction>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<[string]>;
-
-    swapOrderGas(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -391,13 +386,13 @@ export class SettlementProxy extends BaseContract {
    */
   isOwner(overrides?: CallOverrides): Promise<boolean>;
 
-  marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
-
-  minFee(overrides?: CallOverrides): Promise<BigNumber>;
-
   minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
+  minMarginOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
+
   minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+  minSwapOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
 
   orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
@@ -430,8 +425,6 @@ export class SettlementProxy extends BaseContract {
   ): Promise<ContractTransaction>;
 
   sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
-
-  swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
   /**
    * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -477,13 +470,13 @@ export class SettlementProxy extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<boolean>;
 
-    marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
-
-    minFee(overrides?: CallOverrides): Promise<BigNumber>;
-
     minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
+    minMarginOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
+
     minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minSwapOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<string>;
 
@@ -513,8 +506,6 @@ export class SettlementProxy extends BaseContract {
     setProxyOwner(_owner: string, overrides?: CallOverrides): Promise<void>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<string>;
-
-    swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -595,13 +586,13 @@ export class SettlementProxy extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<BigNumber>;
 
-    marginOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
-
-    minFee(overrides?: CallOverrides): Promise<BigNumber>;
-
     minMarginOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
 
+    minMarginOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
+
     minSwapOrderSize(overrides?: CallOverrides): Promise<BigNumber>;
+
+    minSwapOrderTxFee(overrides?: CallOverrides): Promise<BigNumber>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -634,8 +625,6 @@ export class SettlementProxy extends BaseContract {
     ): Promise<BigNumber>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<BigNumber>;
-
-    swapOrderGas(overrides?: CallOverrides): Promise<BigNumber>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.
@@ -685,15 +674,17 @@ export class SettlementProxy extends BaseContract {
      */
     isOwner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    marginOrderGas(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    minFee(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
     minMarginOrderSize(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    minMarginOrderTxFee(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     minSwapOrderSize(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    minSwapOrderTxFee(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     orderBookAddress(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -728,8 +719,6 @@ export class SettlementProxy extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     sovrynSwapNetwork(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    swapOrderGas(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     /**
      * Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.

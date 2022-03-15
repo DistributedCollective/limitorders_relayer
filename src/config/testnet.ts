@@ -19,5 +19,6 @@ export default {
     loanContracts: {
         iXUSD: "0x9bd0ce087b14ef67c3d37c891139aae7d94a961a",
         iRBTC: "0xe67fe227e0504e8e96a34c3594795756dc26e14b",
+        iDoc: "0x74e00A8CeDdC752074aad367785bFae7034ed89f",
     },
 };

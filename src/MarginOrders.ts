@@ -165,10 +165,8 @@ class MarginOrders {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
         const relayerFeePercent = await settlement.relayerFeePercent();
-        const marginOrderGas = await settlement.marginOrderGas();
-        const gasPrice = await Utils.getGasPrice(provider);
+        const txFee = await settlement.minMarginOrderTxFee();
         let orderFee = orderSizeUsd.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
-        let txFee = gasPrice.mul(marginOrderGas).mul(3).div(2);
         const path = await swap.conversionPath(Utils.getTokenAddress('wrbtc'), Utils.getTokenAddress('xusd'));
         const txFeeUsd = await swap.rateByPath(path, txFee);
 

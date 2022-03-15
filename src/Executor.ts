@@ -64,21 +64,20 @@ const calculateProfit = async (provider: ethers.providers.BaseProvider, order: B
     const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
     const swap = new Contract(config.contracts.sovrynSwap, swapAbi, provider);
     let orderSizeUsd: BigNumber;
-    let maxTxGas: BigNumber;
+    let minTxFee: BigNumber;
     let usdToken: string = Utils.getTokenAddress('xusd');
 
     if ((order as Order).maker) {
         const limitOrder = order as Order;
         orderSizeUsd = await Utils.convertUsdAmount(limitOrder.fromToken, limitOrder.amountIn);
-        maxTxGas = await settlement.swapOrderGas();
+        minTxFee = await settlement.minSwapOrderTxFee();
     } else {
         const marginOrder = order as MarginOrder;
         orderSizeUsd = await MarginOrders.getOrderSize(marginOrder, provider);
-        maxTxGas = await settlement.marginOrderGas();
+        minTxFee = await settlement.minMarginOrderTxFee();
     }
 
     let orderFee = orderSizeUsd.mul(2).div(1000); // 0.2% fee
-    const minTxFee = gasPrice.mul(maxTxGas).mul(3).div(2);
     const wrbtcAdr = Utils.getTokenAddress('wrbtc');
     const rbtcPath = await swap.conversionPath(wrbtcAdr, usdToken);
     const minTxFeeUsd = await swap.rateByPath(rbtcPath, minTxFee);
@@ -185,6 +184,7 @@ class Executor {
             for (const batchOrders of batches) {
                 const signer = await net.getWallet();
                 if (signer == null) {
+                    console.log(net.pendingHashes);
                     Log.d("No wallet available");
                     continue;
                 }
