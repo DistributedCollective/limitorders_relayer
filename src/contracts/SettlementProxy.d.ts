@@ -24,6 +24,7 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
     "DOMAIN_SEPARATOR1()": FunctionFragment;
     "DOMAIN_SEPARATOR2()": FunctionFragment;
     "RBTC_ADDRESS()": FunctionFragment;
+    "UNLIMITED_ALLOWANCE()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
     "canceledOfHash(bytes32)": FunctionFragment;
@@ -38,6 +39,7 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
     "orderBookAddress()": FunctionFragment;
     "orderBookMarginAddress()": FunctionFragment;
     "owner()": FunctionFragment;
+    "priceFeeds()": FunctionFragment;
     "relayerFeePercent()": FunctionFragment;
     "setImplementation(address)": FunctionFragment;
     "setProxyOwner(address)": FunctionFragment;
@@ -55,6 +57,10 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "RBTC_ADDRESS",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "UNLIMITED_ALLOWANCE",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -105,6 +111,10 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "priceFeeds",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "relayerFeePercent",
     values?: undefined
   ): string;
@@ -135,6 +145,10 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "RBTC_ADDRESS",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "UNLIMITED_ALLOWANCE",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -184,6 +198,7 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "priceFeeds", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "relayerFeePercent",
     data: BytesLike
@@ -272,6 +287,8 @@ export class SettlementProxy extends BaseContract {
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
 
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<[BigNumber]>;
+
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<[BigNumber]>;
@@ -322,6 +339,8 @@ export class SettlementProxy extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<[string]>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<[string]>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     /**
@@ -359,6 +378,8 @@ export class SettlementProxy extends BaseContract {
   DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
   RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
+
+  UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
   WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
@@ -403,6 +424,8 @@ export class SettlementProxy extends BaseContract {
    */
   owner(overrides?: CallOverrides): Promise<string>;
 
+  priceFeeds(overrides?: CallOverrides): Promise<string>;
+
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
   /**
@@ -440,6 +463,8 @@ export class SettlementProxy extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
+
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
@@ -486,6 +511,8 @@ export class SettlementProxy extends BaseContract {
      * Returns the address of the current owner.
      */
     owner(overrides?: CallOverrides): Promise<string>;
+
+    priceFeeds(overrides?: CallOverrides): Promise<string>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -557,6 +584,8 @@ export class SettlementProxy extends BaseContract {
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
 
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
+
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
@@ -603,6 +632,8 @@ export class SettlementProxy extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<BigNumber>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<BigNumber>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
     /**
@@ -641,6 +672,10 @@ export class SettlementProxy extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    UNLIMITED_ALLOWANCE(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -696,6 +731,8 @@ export class SettlementProxy extends BaseContract {
      * Returns the address of the current owner.
      */
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    priceFeeds(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 

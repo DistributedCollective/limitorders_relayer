@@ -25,6 +25,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "DOMAIN_SEPARATOR1()": FunctionFragment;
     "DOMAIN_SEPARATOR2()": FunctionFragment;
     "RBTC_ADDRESS()": FunctionFragment;
+    "UNLIMITED_ALLOWANCE()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "allCanceledHashes()": FunctionFragment;
     "approveTokenLoan(address,address,uint256)": FunctionFragment;
@@ -40,7 +41,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "fillOrder(((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256,uint256,address[]))": FunctionFragment;
     "fillOrders(tuple[])": FunctionFragment;
     "filledAmountInOfHash(bytes32)": FunctionFragment;
-    "initialize(uint256,address,address,address,address)": FunctionFragment;
+    "initialize(uint256,address,address,address,address,address)": FunctionFragment;
     "isOwner()": FunctionFragment;
     "minMarginOrderSize()": FunctionFragment;
     "minMarginOrderTxFee()": FunctionFragment;
@@ -49,11 +50,13 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "orderBookAddress()": FunctionFragment;
     "orderBookMarginAddress()": FunctionFragment;
     "owner()": FunctionFragment;
+    "priceFeeds()": FunctionFragment;
     "relayerFeePercent()": FunctionFragment;
     "setMinMarginOrderSize(uint256)": FunctionFragment;
     "setMinMarginOrderTxFee(uint256)": FunctionFragment;
     "setMinSwapOrderSize(uint256)": FunctionFragment;
     "setMinSwapOrderTxFee(uint256)": FunctionFragment;
+    "setPriceFeeds(address)": FunctionFragment;
     "setRelayerFee(uint256)": FunctionFragment;
     "sovrynSwapNetwork()": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
@@ -70,6 +73,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "RBTC_ADDRESS",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "UNLIMITED_ALLOWANCE",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -235,7 +242,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "initialize",
-    values: [BigNumberish, string, string, string, string]
+    values: [BigNumberish, string, string, string, string, string]
   ): string;
   encodeFunctionData(functionFragment: "isOwner", values?: undefined): string;
   encodeFunctionData(
@@ -264,6 +271,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
+    functionFragment: "priceFeeds",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "relayerFeePercent",
     values?: undefined
   ): string;
@@ -282,6 +293,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "setMinSwapOrderTxFee",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setPriceFeeds",
+    values: [string]
   ): string;
   encodeFunctionData(
     functionFragment: "setRelayerFee",
@@ -310,6 +325,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "RBTC_ADDRESS",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "UNLIMITED_ALLOWANCE",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -387,6 +406,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "priceFeeds", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "relayerFeePercent",
     data: BytesLike
@@ -405,6 +425,10 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "setMinSwapOrderTxFee",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setPriceFeeds",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -435,6 +459,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "SetMinMarginOrderTxFee(address,uint256,uint256)": EventFragment;
     "SetMinSwapOrderSize(address,uint256,uint256)": EventFragment;
     "SetMinSwapOrderTxFee(address,uint256,uint256)": EventFragment;
+    "SetPriceFeeds(address,address,address)": EventFragment;
     "SetRelayerFee(address,uint256,uint256)": EventFragment;
     "Swap(address,address,uint256,uint256,address)": EventFragment;
     "Withdrawal(address,uint256)": EventFragment;
@@ -453,6 +478,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "SetMinMarginOrderTxFee"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "SetMinSwapOrderSize"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "SetMinSwapOrderTxFee"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "SetPriceFeeds"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "SetRelayerFee"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Swap"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Withdrawal"): EventFragment;
@@ -572,6 +598,14 @@ export type SetMinSwapOrderTxFeeEvent = TypedEvent<
   }
 >;
 
+export type SetPriceFeedsEvent = TypedEvent<
+  [string, string, string] & {
+    sender: string;
+    oldValue: string;
+    newValue: string;
+  }
+>;
+
 export type SetRelayerFeeEvent = TypedEvent<
   [string, BigNumber, BigNumber] & {
     sender: string;
@@ -643,6 +677,8 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<[string]>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
+
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
 
@@ -828,6 +864,7 @@ export class SettlementLogic extends BaseContract {
       _orderBookAddress: string,
       _marginOrderBookAddress: string,
       _sovrynSwapNetwork: string,
+      _priceFeeds: string,
       _WRBTC: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
@@ -854,6 +891,8 @@ export class SettlementLogic extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<[string]>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<[string]>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     setMinMarginOrderSize(
@@ -873,6 +912,11 @@ export class SettlementLogic extends BaseContract {
 
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<ContractTransaction>;
+
+    setPriceFeeds(
+      _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -902,6 +946,8 @@ export class SettlementLogic extends BaseContract {
   DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
   RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
+
+  UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
   WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
@@ -1076,6 +1122,7 @@ export class SettlementLogic extends BaseContract {
     _orderBookAddress: string,
     _marginOrderBookAddress: string,
     _sovrynSwapNetwork: string,
+    _priceFeeds: string,
     _WRBTC: string,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
@@ -1102,6 +1149,8 @@ export class SettlementLogic extends BaseContract {
    */
   owner(overrides?: CallOverrides): Promise<string>;
 
+  priceFeeds(overrides?: CallOverrides): Promise<string>;
+
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
   setMinMarginOrderSize(
@@ -1121,6 +1170,11 @@ export class SettlementLogic extends BaseContract {
 
   setMinSwapOrderTxFee(
     _newGas: BigNumberish,
+    overrides?: Overrides & { from?: string | Promise<string> }
+  ): Promise<ContractTransaction>;
+
+  setPriceFeeds(
+    _priceFeeds: string,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -1150,6 +1204,8 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
+
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
@@ -1334,6 +1390,7 @@ export class SettlementLogic extends BaseContract {
       _orderBookAddress: string,
       _marginOrderBookAddress: string,
       _sovrynSwapNetwork: string,
+      _priceFeeds: string,
       _WRBTC: string,
       overrides?: CallOverrides
     ): Promise<void>;
@@ -1360,6 +1417,8 @@ export class SettlementLogic extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<string>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<string>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
     setMinMarginOrderSize(
@@ -1379,6 +1438,11 @@ export class SettlementLogic extends BaseContract {
 
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setPriceFeeds(
+      _priceFeeds: string,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -1713,6 +1777,24 @@ export class SettlementLogic extends BaseContract {
       { sender: string; oldValue: BigNumber; newValue: BigNumber }
     >;
 
+    "SetPriceFeeds(address,address,address)"(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, string, string],
+      { sender: string; oldValue: string; newValue: string }
+    >;
+
+    SetPriceFeeds(
+      sender?: string | null,
+      oldValue?: null,
+      newValue?: null
+    ): TypedEventFilter<
+      [string, string, string],
+      { sender: string; oldValue: string; newValue: string }
+    >;
+
     "SetRelayerFee(address,uint256,uint256)"(
       sender?: string | null,
       oldValue?: null,
@@ -1788,6 +1870,8 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<BigNumber>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
+
+    UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1965,6 +2049,7 @@ export class SettlementLogic extends BaseContract {
       _orderBookAddress: string,
       _marginOrderBookAddress: string,
       _sovrynSwapNetwork: string,
+      _priceFeeds: string,
       _WRBTC: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
@@ -1991,6 +2076,8 @@ export class SettlementLogic extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<BigNumber>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<BigNumber>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
     setMinMarginOrderSize(
@@ -2010,6 +2097,11 @@ export class SettlementLogic extends BaseContract {
 
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<BigNumber>;
+
+    setPriceFeeds(
+      _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -2040,6 +2132,10 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     RBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    UNLIMITED_ALLOWANCE(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -2220,6 +2316,7 @@ export class SettlementLogic extends BaseContract {
       _orderBookAddress: string,
       _marginOrderBookAddress: string,
       _sovrynSwapNetwork: string,
+      _priceFeeds: string,
       _WRBTC: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
@@ -2252,6 +2349,8 @@ export class SettlementLogic extends BaseContract {
      */
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    priceFeeds(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     setMinMarginOrderSize(
@@ -2271,6 +2370,11 @@ export class SettlementLogic extends BaseContract {
 
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
+      overrides?: Overrides & { from?: string | Promise<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setPriceFeeds(
+      _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
