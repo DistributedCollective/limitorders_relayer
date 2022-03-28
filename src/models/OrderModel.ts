@@ -14,8 +14,21 @@ export default class OrderModel extends BaseModel {
             dateAdded datetime,
             profit text,
             txHash text,
+            orderTime datetime,
             detail text
             )`);
+    }
+
+    static Statuss = {
+        open: "open",
+        matched: "matched",
+        success: "success",
+        retrying: "retrying",
+        filling: "filling",
+        failed: "failed",
+        failed_smallOrder: "failed_smallOrder",
+        filled_by_another: "filled_by_another",
+        canceled: "canceled",
     }
 
     async createTable() {

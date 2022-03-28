@@ -93,7 +93,6 @@ export default class BaseModel {
      */
     find(criteria, { limit = 10, offset = 0, orderBy = null } = {}) {
         let sql = `SELECT * FROM ${this.table}`;
-        const params = _.values(criteria);
 
         if (_.size(criteria) > 0) {
             const where = this.parseWhereClause(criteria);
@@ -111,6 +110,7 @@ export default class BaseModel {
             sql += ' OFFSET ' + offset;
         }
 
+        const params = _.values(criteria);
         return this.all(sql, params);
     }
 
@@ -151,5 +151,18 @@ export default class BaseModel {
         `;
 
         return this.run(sql, params);
+    }
+
+    async count(criteria) {
+        let sql = `Select Count(*) as total FROM ${this.table}`;
+
+        if (_.size(criteria) > 0) {
+            const where = this.parseWhereClause(criteria);
+            sql += ' WHERE ' + where;
+        }
+
+        const params = _.values(criteria);
+        const res = await this.all(sql, params);
+        return res && res[0] && res[0].total || 0;
     }
 }

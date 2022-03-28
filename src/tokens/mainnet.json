@@ -8,10 +8,24 @@
             "decimals": 18
         },
         {
-            "address": "0xb5999795BE0EbB5bAb23144AA5FD6A02D080299F",
+            "address": "0x1D931Bf8656d795E50eF6D639562C5bD8Ac2B78f",
             "chainId": 30,
-            "name": "XUSD",
-            "symbol": "XUSD",
+            "name": "ETHs",
+            "symbol": "ETHs",
+            "decimals": 18
+        },
+        {
+            "address": "0x6D9659bdF5b1A1dA217f7BbAf7dBAF8190E2e71B",
+            "chainId": 30,
+            "name": "BNBs",
+            "symbol": "BNBs",
+            "decimals": 18
+        },
+        {
+            "address": "0x542fDA317318eBF1d3DEAf76E0b632741A7e677d",
+            "chainId": 30,
+            "name": "WRBTC",
+            "symbol": "WRBTC",
             "decimals": 18
         },
         {
@@ -22,10 +36,10 @@
             "decimals": 18
         },
         {
-            "address": "0x542fDA317318eBF1d3DEAf76E0b632741A7e677d",
+            "address": "0xb5999795BE0EbB5bAb23144AA5FD6A02D080299F",
             "chainId": 30,
-            "name": "WRBTC",
-            "symbol": "WRBTC",
+            "name": "XUSD",
+            "symbol": "XUSD",
             "decimals": 18
         },
         {
@@ -40,20 +54,6 @@
             "chainId": 30,
             "name": "USDT",
             "symbol": "USDT",
-            "decimals": 18
-        },
-        {
-            "address": "0x1D931Bf8656d795E50eF6D639562C5bD8Ac2B78f",
-            "chainId": 30,
-            "name": "ETHs",
-            "symbol": "ETHs",
-            "decimals": 18
-        },
-        {
-            "address": "0x6D9659bdF5b1A1dA217f7BbAf7dBAF8190E2e71B",
-            "chainId": 30,
-            "name": "BNBs",
-            "symbol": "BNBs",
             "decimals": 18
         }
     ]

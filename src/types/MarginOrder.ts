@@ -1,7 +1,8 @@
 import { ethers } from "ethers";
 import { Trade } from "@sushiswap/sdk";
+import { BaseOrder } from "./Order";
 
-interface MarginOrder {
+interface MarginOrder extends BaseOrder {
     hash: string;
     loanId: string;
     leverageAmount: ethers.BigNumber;

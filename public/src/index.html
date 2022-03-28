@@ -4,8 +4,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
-        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css"
+        integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular-csp.min.css"
         integrity="sha512-nptw3cPhphu13Dy21CXMS1ceuSy2yxpKswAfZ7bAAE2Lvh8rHXhQFOjU+sSnw4B+mEoQmKFLKOj8lmXKVk3gow=="
         crossorigin="anonymous" />
@@ -18,11 +19,11 @@
         <h1>Sovryn Settlement Relayer</h1>
 
         <div class="row">
-            <div class="col-6">
+            <div class="col-12 col-md-12">
                 <h2>Wallet info</h2>
                 <h4>Total USD balance: {{ ctrl.totalUsdBalance }}</h4>
                 <h4>Accounts</h4>
-                <table>
+                <table class="table table-bordered">
                     <tr>
                         <th>Account</th>
                         <th>USD</th>
@@ -47,10 +48,8 @@
         </div>
 
         <div class="row">
-            <div class="col-12">
-                <br />
-                <br />
-                <table>
+            <div class="col-md-8 col-xs-12">
+                <table class="table table-bordered">
                     <tr>
                         <th>Total actions</th>
                         <th>Total Profit</th>
@@ -69,20 +68,24 @@
 
         <div>
             <br/>
-            <button class="btn btn-default" ng-click="ctrl.viewOrder()">
-                View order detail
-            </button>
-            <br/>
-            <button class="btn btn-default" ng-click="ctrl.viewMarginOrder()">
-                View margin order detail
-            </button>
+            <p>
+                <a class="btn btn-info" href="/orderbook.html" target="_blank">Order book</a>
+
+                <button class="btn btn-default" ng-click="ctrl.viewOrder()">
+                    View order detail
+                </button>
+                
+                <button class="btn btn-default" ng-click="ctrl.viewMarginOrder()">
+                    View margin order detail
+                </button>
+            </p>
             <p ng-if="ctrl.orderDetail != null">
                 Hash: {{ctrl.orderDetail.hash}}<br/>
                 Maker: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.maker}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br/>
-                From Token: {{ctrl.orderDetail.fromToken}}<br/>
-                To Token: {{ctrl.orderDetail.toToken}}<br/>
-                Amount in: {{ctrl.orderDetail.amountIn}}<br/>
-                Amount out min: {{ctrl.orderDetail.amountOutMin}}<br/>
+                Pair: <span>{{ctrl.orderDetail.isSell ? 'Sell' : 'Buy'}} {{ctrl.orderDetail.pair}}</span> <br/>
+                Amount in: {{ctrl.orderDetail.amountIn}} {{ctrl.orderDetail.fromSymbol}}<br/>
+                Amount out min: {{ctrl.orderDetail.amountOutMin}} {{ctrl.orderDetail.toSymbol}}<br/>
+                Limit Price: {{ctrl.orderDetail.limitPrice}} {{ctrl.orderDetail.pair}}<br />
                 Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.recipient}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br />
                 Deadline: <span ng-bind="{{ctrl.orderDetail.deadline*1000}}|date:'short'"></span><br/>
                 Created at: <span ng-bind="{{ctrl.orderDetail.created*1000}}|date:'short'"></span><br/>
@@ -95,11 +98,10 @@
                 Trader: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.trader}}" target="_blank">{{ctrl.marginOrderDetail.trader}}</a><br/>
                 LoanId: {{ctrl.marginOrderDetail.loanId}}<br/>
                 Leverage: {{ctrl.marginOrderDetail.leverageAmount}}<br/>
-                Loan Token Address: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.loanTokenAddress}}" target="_blank">{{ctrl.marginOrderDetail.loanTokenAddress}}</a><br/>
+                Direction: <span>{{ctrl.marginOrderDetail.pos}} {{ctrl.marginOrderDetail.pair}}</span> <br />
                 Loan Token Sent: {{ctrl.marginOrderDetail.loanTokenSent}}<br/>
                 Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br/>
-                Min Entry Price: {{ctrl.marginOrderDetail.minEntryPrice}}<br/>
-                LoanDataBytes: {{ctrl.marginOrderDetail.loanDataBytes}}<br/>
+                Limit Price: {{ctrl.marginOrderDetail.limitPrice}} {{ctrl.marginOrderDetail.pair}}<br/>
                 Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline*1000}}|date:'short'"></span><br/>
                 Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp*1000}}|date:'short'"></span><br/>
                 Cancelled: {{ctrl.marginOrderDetail.cancelled}}<br />
@@ -108,20 +110,21 @@
         </div>
     </div>
 
-
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
         integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
         crossorigin="anonymous"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"
+        integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"
         crossorigin="anonymous"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular.min.js"
         integrity="sha512-jiG+LwJB0bmXdn4byKzWH6whPpnLy1pnGA/p3VCXFLk4IJ/Ftfcb22katPTapt35Q6kwrlnRheK6UPOIdJhYTA=="
         crossorigin="anonymous"></script>
+    <script src="./libs/ui-bootstrap-custom-2.5.0.min.js"></script>
+    <script src="./libs/ui-bootstrap-custom-tpls-2.5.0.min.js"></script>
     <script src="main.js"></script>
 </body>
 

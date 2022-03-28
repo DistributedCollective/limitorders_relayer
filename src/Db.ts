@@ -8,6 +8,7 @@ import MarginOrder from "./types/MarginOrder";
 import Order from "./types/Order";
 import Orders from "./Orders";
 import MarginOrders from "./MarginOrders";
+import { Utils } from "./Utils";
 const sqlite3 = SQLite3.verbose();
 
 class DbCtrl {
@@ -24,7 +25,7 @@ class DbCtrl {
 
                     Log.d('Connected to the ' + dbName + ' database.');
 
-                    this.initRepos().catch(Log.e);
+                    this.initRepos().catch(Log.e).finally(() => resolve(null));
                 }
             });
         });
@@ -43,6 +44,15 @@ class DbCtrl {
         }
     }
 
+    async checkOrderHash(hash: string) {
+        const model: any = await this.orderModel.findOne({ hash: hash });
+        if (!model) return null;
+
+        return model.type == 'limit' ? 
+            Orders.parseOrder(JSON.parse(model.detail)) :
+            MarginOrders.parseOrder(JSON.parse(model.detail));
+    }
+
     async addOrder(order: Order, { status = 'matched'} = {}) {
         try {
             const exists = await this.orderModel.findOne({ hash: order.hash });
@@ -53,6 +63,7 @@ class DbCtrl {
                 status: status || 'matched',
                 type: 'limit',
                 owner: order.maker,
+                orderTime: Utils.formatDate(Number(order.created)),
                 detail: JSON.stringify({ ...order, trade: undefined })
             });
         } catch (e) {
@@ -70,6 +81,7 @@ class DbCtrl {
                 status: status || 'matched',
                 type: 'margin',
                 owner: order.trader,
+                orderTime: Utils.formatDate(Number(order.createdTimestamp)),
                 detail: JSON.stringify(order)
             });
         } catch (e) {
@@ -99,17 +111,41 @@ class DbCtrl {
         return await this.orderModel.update({ hash: hashList }, updateObj);
     }
 
-    async findMatchingOrders(type, { status, batchId } = { status: null, batchId: null }) {
+    async updateOrderFiller(hash: string, filler: string) {
+        return await this.orderModel.update({ hash: hash }, {
+            relayer: filler
+        });
+    }
+
+    async findOrders(type, { status, batchId, limit, offset, latest } = {} as any) {
         const cond: any = {
             type,
-            status: status || 'matched',
         };
+        let orderBy;
+        if (status) cond.status = status;
         if (batchId) cond.batchId = batchId;
-        const list: any = await this.orderModel.find(cond, { limit: 100 });
+        if (latest) orderBy = { orderTime: -1 };
+
+        const list: any = await this.orderModel.find(cond, {
+            offset,
+            limit: limit || 100,
+            orderBy
+        });
         return (list || []).map(item => {
             const json = JSON.parse(item.detail);
-            return !!json.maker ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);
+            json.status = item.status;
+            json.type = item.type;
+            json.relayer = item.relayer;
+            return item.type == 'limit' ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);
         });
+    }
+
+    async countOrders({ type, status } = {} as any) {
+        const cond: any = {};
+        if (type) cond.type = type;
+        if (status) cond.status = status;
+
+        return await this.orderModel.count(cond);
     }
 
     async getTotals(last24H) {

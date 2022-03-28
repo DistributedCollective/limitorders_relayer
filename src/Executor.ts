@@ -18,11 +18,17 @@ import MarginOrders from "./MarginOrders";
 import { formatEther } from "ethers/lib/utils";
 import RSK from "./RSK";
 import Orders from "./Orders";
+import OrderModel from "./models/OrderModel";
 
 export type OnOrderFilled = (
     hash: string,
     amountIn: ethers.BigNumber,
     amountOut: ethers.BigNumber
+) => Promise<void> | void;
+
+export type OnFeeTransferred = (
+    hash: string,
+    recipient: string
 ) => Promise<void> | void;
 
 const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, orders: Order[]) => {
@@ -81,7 +87,7 @@ const calculateProfit = async (provider: ethers.providers.BaseProvider, order: B
     const wrbtcAdr = Utils.getTokenAddress('wrbtc');
     const rbtcPath = await swap.conversionPath(wrbtcAdr, usdToken);
     const minTxFeeUsd = await swap.rateByPath(rbtcPath, minTxFee);
-    
+
     if (minTxFeeUsd.gt(orderFee)) {
         orderFee = minTxFeeUsd;
     }
@@ -107,15 +113,26 @@ class Executor {
         settlement.on("MarginOrderFilled", onOrderFilled);
     }
 
+    watchFeeTranfered(onFeeTransferred: OnFeeTransferred) {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
+        settlement.on("FeeTransferred", onFeeTransferred);
+    }
+
     async filledAmountIn(hash: string) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         return await settlement.filledAmountInOfHash(hash);
     }
 
-    async match(tokens: Token[], pairs: Pair[], orders: Order[], timeout: number) {
+    async match(tokens: Token[], pairs: Pair[], timeout: number) {
         const executables: Order[] = [];
         const now = Date.now();
-        for (const order of orders) {
+        const openOrders: Order[] = await Db.findOrders('limit', {
+            status: OrderModel.Statuss.open,
+            batchId: null
+        });
+        Log.d(`Checking ${openOrders.length} open spot orders`);
+
+        for (const order of openOrders) {
             const added = await Db.orderModel.findOne({ hash: order.hash });
             if (added) continue;
 
@@ -145,10 +162,15 @@ class Executor {
         return executables;
     }
 
-    async matchMarginOrders(orders: MarginOrder[]) {
+    async matchMarginOrders() {
+        const openOrders: MarginOrder[] = await Db.findOrders('margin', {
+            status: OrderModel.Statuss.open,
+            batchId: null
+        });
+        Log.d(`Checking ${openOrders.length} open margin orders`);
         const executables: MarginOrder[] = [];
 
-        for (const order of orders) {
+        for (const order of openOrders) {
             const added = await Db.orderModel.findOne({ hash: order.hash });
             if (added) continue;
 
@@ -169,9 +191,9 @@ class Executor {
         try {
             Log.d("Start checking for filling batch orders, type", type);
             const isLimitOrder = type == 'limit';
-            let orders: BaseOrder[] = await Db.findMatchingOrders(type, {
+            let orders: BaseOrder[] = await Db.findOrders(type, {
                 batchId: retryBatchId,
-                status: !!retryBatchId ? 'retrying' : 'matched'
+                status: !!retryBatchId ? OrderModel.Statuss.retrying : OrderModel.Statuss.matched
             });
 
             if (isLimitOrder) {
@@ -190,7 +212,7 @@ class Executor {
                 }
 
                 const batchId = retryBatchId || Utils.getUuid();
-                await Db.updateOrdersStatus(batchOrders.map(order => order.hash), 'filling', batchId);
+                await Db.updateOrdersStatus(batchOrders.map(order => order.hash), OrderModel.Statuss.filling, batchId);
                 Log.d('batch:', batchId, batchOrders.map(order => order.hash))
 
                 const signerAdr = await signer.getAddress();
@@ -205,13 +227,13 @@ class Executor {
                 fill.then(async (tx) => {
                     Log.d('tx hash', tx.hash, 'nonce', tx.nonce);
                     for (const order of batchOrders) {
-                        await Db.updateFilledOrder(signerAdr, order.hash, tx.hash, 'filling', "");
+                        await Db.updateFilledOrder(signerAdr, order.hash, tx.hash, OrderModel.Statuss.filling, "");
                     }
                     const receipt = await tx.wait();
                     net.removeHash(batchId);
                     for (const order of batchOrders) {
                         const profit = await calculateProfit(this.provider, order, receipt, batchOrders.length, tx.gasPrice);
-                        await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, 'success', profit);
+                        await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, OrderModel.Statuss.success, profit);
                         Log.d(`profit of ${order.hash}: ${profit}$`);
                     }
                 }).catch(async (e) => {
@@ -220,7 +242,7 @@ class Executor {
 
                     net.removeHash(batchId);
                     if (batchOrders.length === 1) {
-                        await Db.updateFilledOrder(signerAdr, batchOrders[0].hash, '', 'failed', '');
+                        await Db.updateFilledOrder(signerAdr, batchOrders[0].hash, '', OrderModel.Statuss.failed, '');
                     } else {
                         await Utils.wasteTime(10);
                         await this.retryFillFailedOrders(batchOrders.map(order => order), net, isLimitOrder);
@@ -239,8 +261,8 @@ class Executor {
         const mid = Math.round(orders.length / 2)
         const firstBatch = orders.slice(0, mid), lastBatch = orders.slice(mid);
         const batchId1 = Utils.getUuid(), batchId2 = Utils.getUuid();
-        await Db.updateOrdersStatus(firstBatch.map(o => o.hash), 'retrying', batchId1);
-        await Db.updateOrdersStatus(lastBatch.map(o => o.hash), 'retrying', batchId2);
+        await Db.updateOrdersStatus(firstBatch.map(o => o.hash), OrderModel.Statuss.retrying, batchId1);
+        await Db.updateOrdersStatus(lastBatch.map(o => o.hash), OrderModel.Statuss.retrying, batchId2);
 
         if (isLimitOrder) {
             await new Promise(async (resolve) => {
@@ -249,7 +271,7 @@ class Executor {
                 this.checkFillBatchOrders(net, 'limit', batchId2);
                 resolve(true);
             });
-        } else {                                                                                                                             
+        } else {
             await new Promise(async (resolve) => {
                 this.checkFillBatchOrders(net, 'margin', batchId1);
                 await Utils.wasteTime(3);
@@ -269,7 +291,7 @@ class Executor {
 
         if (args.length > 0) {
             Log.d("filling orders...");
-            await Db.updateOrdersStatus(args.map(arg => arg.order.hash), 'filling', Utils.getUuid());
+            await Db.updateOrdersStatus(args.map(arg => arg.order.hash), OrderModel.Statuss.filling, Utils.getUuid());
 
             args.forEach(arg => {
                 const symbol = Utils.getTokenSymbol(arg.order.fromToken);

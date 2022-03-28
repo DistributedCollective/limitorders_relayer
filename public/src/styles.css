@@ -8,11 +8,8 @@ a {
   color: #00c3ff;
 }
 
-td, th {
-  border: 1px solid #dddddd;
-  padding: 8px;
-  text-align: center;
-  vertical-align: middle;
+.table-hover>tbody>tr:hover {
+    background-color: rgb(33 150 243 / 14%);
 }
 
 h2 {

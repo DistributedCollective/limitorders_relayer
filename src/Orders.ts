@@ -8,6 +8,9 @@ import Log from "./Log";
 import { formatEther, parseEther } from "ethers/lib/utils";
 import swapAbi from "./config/abi_sovrynSwap.json";
 import Db from "./Db";
+import OrderModel from "./models/OrderModel";
+import RSK from "./RSK";
+import TokenEntry from "./types/TokenEntry";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -43,11 +46,14 @@ class Orders {
             const canceledHashes = await Orders.fetchCanceledHashes(provider);
             const hashes = await Orders.fetchHashes(kovanProvider);
             const now = Math.floor(Date.now() / 1000);
-            return (
+            const orders = (
                 await Promise.all(
                     hashes
                         .filter(hash => !canceledHashes.includes(hash))
                         .map(async hash => {
+                            const added = await Db.checkOrderHash(hash);
+                            if (added) return null;
+
                             const order = await this.fetchOrder(hash, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
@@ -57,6 +63,12 @@ class Orders {
                         })
                 )
             ).filter(order => !!order);
+
+            for (const order of orders) {
+                await Db.addOrder(order, { status: OrderModel.Statuss.open });
+            }
+
+            return orders;
         } catch (e) {
             console.log(e);
             return [];
@@ -157,7 +169,7 @@ class Orders {
                     if (amountIn.lt(estFee)) {
                         Log.e("Order size's too small for relayer fee, hash", order.hash, ", amountIn:", formatEther(amountIn), tokenIn.name, 
                             "est fee:", formatEther(estFee));
-                        await Db.addOrder(order, { status: 'failed_smallOrder' })
+                        await Db.addOrder(order, { status: OrderModel.Statuss.failed_smallOrder });
                         continue;
                     }
 
@@ -207,6 +219,61 @@ class Orders {
             await Db.updateFilledOrder(await signer.getAddress(), order.hash, '', 'failed', '');
             return null;
         }
+    }
+
+    static async parseOrderDetail(order: Order, checkFee = false) {
+        const orderDetail: any = {
+            hash: order.hash,
+            maker: order.maker,
+            fromToken: order.fromToken,
+            toToken: order.toToken,
+            recipient: order.recipient,
+            deadline: new Date(order.deadline.toNumber() * 1000),
+            created: new Date(order.created.toNumber() * 1000),
+            status: order.status,
+            relayer: order.relayer,
+        };
+        
+        const pairTokens = this.getPair(order.fromToken, order.toToken);
+        orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;
+
+        if (orderDetail.fromToken.toLowerCase() == pairTokens[0].address.toLowerCase()) {
+            orderDetail.fromSymbol = pairTokens[0].name;
+            orderDetail.toSymbol = pairTokens[1].name;
+            orderDetail.isSell = true;
+            
+        } else {
+            orderDetail.fromSymbol = pairTokens[1].name;
+            orderDetail.toSymbol = pairTokens[0].name;
+            orderDetail.isSell = false;
+        }
+
+        orderDetail.amountIn = formatEther(order.amountIn) + ' ' + orderDetail.fromSymbol;
+        orderDetail.amountOutMin = formatEther(order.amountOutMin) + ' ' + orderDetail.toSymbol;
+
+        if (checkFee) {
+            const fee = await Orders.estimateOrderFee(RSK.Mainnet.provider, { address: order.fromToken } as any, order.amountIn);
+            const actualAmountIn = BigNumber.from(order.amountIn).sub(fee);
+            const limitPrice = BigNumber.from(order.amountOutMin).mul(ethers.constants.WeiPerEther).div(actualAmountIn);
+            orderDetail.estFee = formatEther(fee) + orderDetail.fromSymbol;
+
+            if (orderDetail.isSell) {
+                orderDetail.limitPrice = ">= " + formatEther(limitPrice);
+            } else {
+                orderDetail.limitPrice = "<= " + (1 / Number(formatEther(limitPrice)));
+            }
+        }
+
+        return orderDetail;
+    }
+
+    static getPair(adr1: string, adr2: string): TokenEntry[] {
+        const i1 = config.tokens.findIndex(t => t.address.toLowerCase() == adr1.toLowerCase());
+        const i2 = config.tokens.findIndex(t => t.address.toLowerCase() == adr2.toLowerCase());
+        if (i1 < 0 || i2 < 0) throw "Wrong token";
+
+        return i1 < i2 ? [config.tokens[i1], config.tokens[i2]]
+            : [config.tokens[i2], config.tokens[i1]];
     }
 }
 

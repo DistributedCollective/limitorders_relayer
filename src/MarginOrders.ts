@@ -9,6 +9,9 @@ import swapAbi from "./config/abi_sovrynSwap.json";
 import loanAbi from "./config/abi_loan.json";
 import Db from "./Db";
 import { formatEther, parseEther } from "ethers/lib/utils";
+import OrderModel from "./models/OrderModel";
+import RSK from "./RSK";
+import Orders from "./Orders";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -40,12 +43,15 @@ class MarginOrders {
             const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
             const hashes = await MarginOrders.fetchHashes(kovanProvider);
             const now = Math.floor(Date.now() / 1000);
-            return (
+            const orders = (
                 await Promise.all(
                     hashes
                         .filter(hash => !canceledHashes.includes(hash))
                         .map(async hash => {
-                            const order = await this.fetchOrder(hash, kovanProvider);
+                            const added = await Db.checkOrderHash(hash);
+                            if (added) return null;
+
+                            const order = await this.fetchOrder(hash, provider, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
                             if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
@@ -54,13 +60,19 @@ class MarginOrders {
                         })
                 )
             ).filter(order => !!order);
+
+            for (const order of orders) {
+                await Db.addMarginOrder(order, { status: OrderModel.Statuss.open });
+            }
+
+            return orders;
         } catch (e) {
             Log.e(e);
             return [];
         }
     }
 
-    static async fetchOrder(hash: string, kovanProvider: ethers.providers.BaseProvider) {
+    static async fetchOrder(hash: string, provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
         const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
         const {
             loanId,
@@ -78,7 +90,8 @@ class MarginOrders {
             r,
             s
         } = await orderBook.orderOfHash(hash);
-        return {
+
+        const order = {
             hash,
             loanId,
             leverageAmount,
@@ -95,6 +108,8 @@ class MarginOrders {
             r,
             s
         } as MarginOrder;
+        await this.checkLoanAdr(order, provider);
+        return order;
     }
 
     static watch(
@@ -109,10 +124,15 @@ class MarginOrders {
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
 
+    static loanAssets = {};
     static async checkLoanAdr(order: MarginOrder, provider: ethers.providers.BaseProvider) {
         if (!order.loanAssetAdr) {
-            const loanContract = new Contract(order.loanTokenAddress, abiLoan, provider);
-            order.loanAssetAdr = await loanContract.loanTokenAddress();
+            let loanAssetAdr = this.loanAssets[order.loanTokenAddress];
+            if (loanAssetAdr == null) {
+                const loanContract = new Contract(order.loanTokenAddress, abiLoan, provider);
+                this.loanAssets[order.loanTokenAddress] = loanAssetAdr = await loanContract.loanTokenAddress();
+            }
+            order.loanAssetAdr = loanAssetAdr;
         }
         return order.loanAssetAdr;
     }
@@ -181,7 +201,7 @@ class MarginOrders {
         if (orderSize.lt(estFee)) {
             Log.e("Margin order size's too small for relayer fee, order size:", formatEther(orderSize) + '$,',
                 "est fee:", formatEther(estFee) + '$');
-            await Db.addMarginOrder(order, { status: 'failed_smallOrder' })
+            await Db.addMarginOrder(order, { status: OrderModel.Statuss.failed_smallOrder })
             return false;
         }
 
@@ -210,6 +230,43 @@ class MarginOrders {
             '\n\t minEntryPrice', formatEther(order.minEntryPrice), loanSymb + '/' + collSymb,
         );
         return orderSize.gt(config.minOrderSize) && curPrice.gte(order.minEntryPrice);
+    }
+
+    static async parseOrderDetail(order: MarginOrder) {
+        await this.checkLoanAdr(order, RSK.Mainnet.provider);
+        const orderDetail: any = {
+            hash: order.hash,
+            loanId: order.loanId,
+            leverageAmount: Number(formatEther(order.leverageAmount)) + 1,
+            loanTokenAddress: order.loanTokenAddress,
+            loanAssetAddress: order.loanAssetAdr,
+            collateralTokenAddress: order.collateralTokenAddress,
+            trader: order.trader,
+            minEntryPrice: formatEther(order.minEntryPrice),
+            loanDataBytes: order.loanDataBytes,
+            deadline: new Date(order.deadline.toNumber() * 1000),
+            createdTimestamp: new Date(order.createdTimestamp.toNumber() * 1000),
+            status: order.status,
+            relayer: order.relayer,
+        };
+        const pairTokens = Orders.getPair(order.loanAssetAdr, order.collateralTokenAddress);
+        orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;
+        if (order.loanAssetAdr.toLowerCase() == pairTokens[0].address.toLowerCase()) {
+            orderDetail.fromSymbol = pairTokens[0].name;
+            orderDetail.toSymbol = pairTokens[1].name;
+            orderDetail.pos = 'Short';
+            orderDetail.limitPrice = ">= " + orderDetail.minEntryPrice;
+        } else {
+            orderDetail.fromSymbol = pairTokens[1].name;
+            orderDetail.toSymbol = pairTokens[0].name;
+            orderDetail.pos = 'Long';
+            orderDetail.limitPrice = "<= " + (1 / Number(orderDetail.minEntryPrice));
+        }
+
+        orderDetail.loanTokenSent = formatEther(order.loanTokenSent) + ' ' + orderDetail.fromSymbol;
+        orderDetail.collateralTokenSent = formatEther(order.collateralTokenSent) + ' ' + orderDetail.toSymbol;
+
+        return orderDetail;
     }
 }
 

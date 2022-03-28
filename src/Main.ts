@@ -9,6 +9,9 @@ import Monitor from "./Monitor";
 import MarginOrders from './MarginOrders';
 import config from './config';
 import Db from './Db';
+import OrderModel from "./models/OrderModel";
+import Order from "./types/Order";
+import MarginOrder from "./types/MarginOrder";
 
 
 const mainnet = RSK.Mainnet;
@@ -38,6 +41,7 @@ export const start = async (io: IO.Server) => {
         socket.on('getTotals', async (cb) => Monitor.getTotals(cb));
         socket.on('getLast24HTotals', async (cb) => Monitor.getTotals(cb, true));
         socket.on('getOrderDetail', async (hash, isMargin, cb) => Monitor.getOrderDetail(hash, isMargin, cb));
+        socket.on('listOrders', async ({type, status, offset, limit}, cb) => Monitor.listOrders({type, status, offset, limit}, cb));
     });
 };
 
@@ -46,23 +50,25 @@ const processLimitOrderes = async () => {
     let { tokens, pairs } = await updateTokensAndPairs(mainnet.provider);
 
     Log.d("fetching orders...");
-    const orders = await Orders.fetch(mainnet.provider, testnet.provider);
-    Log.d("found " + orders.length + " orders");
-    orders.forEach(order => {
+    const openOrders = await Orders.fetch(mainnet.provider, testnet.provider);
+    Log.d("found " + openOrders.length + " new open orders");
+    openOrders.forEach(order => {
         Log.d("  " + order.hash);
     });
     Orders.watch(
         async hash => {
             Log.d("order created: " + hash);
-            orders.push(await Orders.fetchOrder(hash, testnet.provider));
+            const order = await Orders.fetchOrder(hash, testnet.provider);
+            await Db.addOrder(order, { status: OrderModel.Statuss.open });
+            // orders.push(order);
         },
         hash => {
             Log.d("order cancelled: " + hash);
-            const index = orders.findIndex(order => order.hash === hash);
-            if (index >= 0) {
-                orders.splice(index, 1);
-                Db.updateOrdersStatus([hash], 'cancelled');
-            }
+            Db.updateOrdersStatus([hash], OrderModel.Statuss.canceled);
+            // const index = orders.findIndex(order => order.hash === hash);
+            // if (index >= 0) {
+            //     orders.splice(index, 1);
+            // }
         },
         mainnet.provider,
         testnet.provider
@@ -83,7 +89,7 @@ const processLimitOrderes = async () => {
             try {
                 await Promise.all([
                     (async () => {
-                        const matched = await executor.match(tokens, pairs, orders, 200000);
+                        const matched = await executor.match(tokens, pairs, 200000);
                         Log.d("matched " + matched.length + " orders");
                         matched.forEach(order => {
                             const aux = order.trade
@@ -107,13 +113,11 @@ const processLimitOrderes = async () => {
     });
     executor.watch(async hash => {
         Log.d("order filled: " + hash);
-        const index = orders.findIndex(o => o.hash === hash);
-        if (index >= 0) {
-            const order = orders[index];
+        const order = await Db.checkOrderHash(hash) as Order;
+        if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
-                orders.splice(index, 1);
-                await Db.updateOrdersStatus([hash], 'filled_by_another');
+                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled_by_another);
             }
         }
     });
@@ -122,21 +126,23 @@ const processLimitOrderes = async () => {
 const processMarginOrders = async () => {
     Log.d("fetching margin orders...");
     const orders = await MarginOrders.fetch(mainnet.provider, testnet.provider);
-    Log.d("found " + orders.length + " margin orders");
+    Log.d("found " + orders.length + " new open margin orders");
     orders.forEach(order => {
         Log.d("  " + order.hash);
     });
     MarginOrders.watch(
         async hash => {
             Log.d("margin order created: " + hash);
-            orders.push(await MarginOrders.fetchOrder(hash, testnet.provider));
+            const order = await MarginOrders.fetchOrder(hash, mainnet.provider, testnet.provider);
+            await Db.addMarginOrder(order, { status: OrderModel.Statuss.open });
+            orders.push(order);
         },
         hash => {
             Log.d("margin order cancelled: " + hash);
             const index = orders.findIndex(order => order.hash === hash);
             if (index >= 0) {
                 orders.splice(index, 1);
-                Db.updateOrdersStatus([hash], 'cancelled');
+                Db.updateOrdersStatus([hash], OrderModel.Statuss.canceled);
             }
         },
         mainnet.provider,
@@ -151,7 +157,7 @@ const processMarginOrders = async () => {
         if (blockNumber % 2 === 0) {
             try {
                 await Promise.all([
-                    executor.matchMarginOrders(orders),
+                    executor.matchMarginOrders(),
                     executor.checkFillBatchOrders(mainnet, 'margin')
                 ]);
             } catch (e) {
@@ -162,14 +168,19 @@ const processMarginOrders = async () => {
     });
     executor.watchMargin(async hash => {
         Log.d("order filled: " + hash);
-        const index = orders.findIndex(o => o.hash === hash);
-        if (index >= 0) {
-            const order = orders[index];
+        const order = await Db.checkOrderHash(hash) as MarginOrder;
+        if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
-                orders.splice(index, 1);
-                await Db.updateOrdersStatus([hash], 'filled_by_another');
+                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled_by_another);
             }
+        }
+    });
+
+    executor.watchFeeTranfered(async (hash, filler) => {
+        const order = await Db.checkOrderHash(hash);
+        if (order && !order.relayer) {
+            await Db.updateOrderFiller(hash, filler);
         }
     });
 };

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css"
+        integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular-csp.min.css"
+        integrity="sha512-nptw3cPhphu13Dy21CXMS1ceuSy2yxpKswAfZ7bAAE2Lvh8rHXhQFOjU+sSnw4B+mEoQmKFLKOj8lmXKVk3gow=="
+        crossorigin="anonymous" />
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+    <title>Order book</title>
+</head>
+
+<body ng-controller="orderBookCtrl as ctrl">
+    <div class="container">
+        <div style="margin-top: 20px;">
+            <h4>Order book</h4>
+            <uib-tabset active="active" type="pills">
+                <uib-tab index="0" heading="Spot orders" select="ctrl.listOrders('spot', true)">
+                    <div style="margin: 8px 0; max-width: 200px;">
+                        <select name="filterSpotStatus" class="form-control"
+                            ng-model="ctrl.orders.spot.status" ng-change="ctrl.listOrders('spot')"
+                        >
+                            <option value="">All</option>
+                            <option value="open">Open</option>
+                            <option value="filled">Filled</option>
+                            <option value="canceled">Canceled</option>
+                        </select>
+                    </div>
+                    <p><strong>Total {{ctrl.orders.spot.total}} row of results</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Pair</th>
+                                <th>Order Type</th>
+                                <th>Amount in</th>
+                                <th>Amount received</th>
+                                <th>Status</th>
+                                <th>Hash</th>
+                                <th>Filler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="order in ctrl.orders.spot.list">
+                                <td>{{ order.created |date:'dd/MM/yyyy hh:mm' }}</td>
+                                <td>{{ order.pair }}</td>
+                                <td>{{ order.isSell ? 'Sell' : 'Buy' }}</td>
+                                <td>{{ order.amountIn }}</td>
+                                <td>{{ order.amountOutMin }}</td>
+                                <td>{{ order.status }}</td>
+                                <td>
+                                    <a href="javascript:0" title="copy" ng-click="ctrl.copy(order.hash)"
+                                        uib-tooltip="Copied" tooltip-trigger="'focus'"
+                                    >
+                                        {{ctrl.short(order.hash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.relayer != null" href="{{ctrl.blockExplorer}}address/{{order.relayer}}" target="_blank">
+                                        {{ctrl.short(order.relayer)}}
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <ul uib-pagination  class="pagination-sm" boundary-links="true" total-items="ctrl.orders.spot.total" 
+                        ng-model="ctrl.orders.spot.page" ng-change="ctrl.listOrders('spot')"
+                        items-per-page="10" max-size="5"
+                        previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;">
+                    </ul>
+                </uib-tab>
+
+                <uib-tab index="1" heading="Margin orders" select="ctrl.listOrders('margin', true)">
+                    <div style="margin: 8px 0; max-width: 200px;">
+                        <select name="filterMarginStatus" class="form-control" ng-model="ctrl.orders.margin.status"
+                            ng-change="ctrl.listOrders('margin')">
+                            <option value="">All</option>
+                            <option value="open">Open</option>
+                            <option value="filled">Filled</option>
+                            <option value="canceled">Canceled</option>
+                        </select>
+                    </div>
+                    <p><strong>Total {{ctrl.orders.margin.total}} row of results</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Pair</th>
+                                <th>Order Type</th>
+                                <th>Leverage</th>
+                                <th>Deposited</th>
+                                <th>Limit price</th>
+                                <th>Status</th>
+                                <th>Hash</th>
+                                <th>Filler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="order in ctrl.orders.margin.list">
+                                <td>{{ order.createdTimestamp |date:'dd/MM/yyyy hh:mm' }}</td>
+                                <td>{{ order.pair }}</td>
+                                <td>{{ order.pos }}</td>
+                                <td>x{{ order.leverageAmount }}</td>
+                                <td>
+                                    {{ order.loanTokenSent }}<br/>
+                                    {{ order.collateralTokenSent }}
+                                </td>
+                                <td>{{ order.limitPrice }}</td>
+                                <td>{{ order.status }}</td>
+                                <td>
+                                    <a href="javascript:0" title="copy" ng-click="ctrl.copy(order.hash)"
+                                        uib-tooltip="Copied" tooltip-trigger="'focus'"
+                                    >
+                                        {{ctrl.short(order.hash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.relayer != null" href="{{ctrl.blockExplorer}}address/{{order.relayer}}" target="_blank">
+                                        {{ctrl.short(order.relayer)}}
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <ul uib-pagination class="pagination-sm" boundary-links="true" total-items="ctrl.orders.margin.total"
+                        ng-model="ctrl.orders.margin.page" ng-change="ctrl.listOrders('margin')" items-per-page="10" max-size="5"
+                        previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;">
+                    </ul>
+                </uib-tab>
+            </uib-tabset>
+        </div>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"
+        integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"
+        crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.0/angular.min.js"
+        integrity="sha512-jiG+LwJB0bmXdn4byKzWH6whPpnLy1pnGA/p3VCXFLk4IJ/Ftfcb22katPTapt35Q6kwrlnRheK6UPOIdJhYTA=="
+        crossorigin="anonymous"></script>
+    <script src="./libs/ui-bootstrap-custom-2.5.0.min.js"></script>
+    <script src="./libs/ui-bootstrap-custom-tpls-2.5.0.min.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>

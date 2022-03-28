@@ -4,7 +4,8 @@ const CopyPlugin = require('copy-webpack-plugin');
 module.exports = {
   entry: [
     './public/src/index.js',
-    './public/src/styles.css'
+    './public/src/styles.css',
+    './public/src/libs/ui-bootstrap-custom-2.5.0-csp.css',
   ],
   devtool: 'inline-source-map',
   devServer: {
@@ -23,7 +24,9 @@ module.exports = {
   plugins: [
     new CopyPlugin({
       patterns: [
-        {from: 'public/src/index.html'}
+        {from: 'public/src/index.html'},
+        {from: 'public/src/orderbook.html'},
+        {from: 'public/src/libs', to: 'libs'}
       ]
     }),
   ],
