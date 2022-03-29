@@ -57,6 +57,9 @@ const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, ord
             if (validAllowance) {
                 result.push(order);
                 validAllowance.allowance = validAllowance.allowance.sub(order.amountIn);
+            } else {
+                Db.updateOrdersStatus([order.hash], 'failed_allowance_not_enough');
+                Log.d(`${order.hash} Not enough allowance`);
             }
         });
 
@@ -324,7 +327,7 @@ class Executor {
             const gasPrice = await Utils.getGasPrice(signer);
             const nonce = await net.addPendingHash(signerAdr, batchId);
             const tx = await contract.fillOrders(args, {
-                gasLimit: gasLimit.mul(120).div(100),
+                gasLimit: gasLimit.mul(140).div(100),
                 gasPrice: gasPrice,
                 nonce
             });
@@ -348,7 +351,7 @@ class Executor {
             const gasPrice = await Utils.getGasPrice(signer);
             const nonce = await net.addPendingHash(signerAdr, batchId);
             const tx = await contract.fillMarginOrders(args, {
-                gasLimit: gasLimit.mul(120).div(100),
+                gasLimit: gasLimit.mul(140).div(100),
                 gasPrice: gasPrice,
                 nonce
             });

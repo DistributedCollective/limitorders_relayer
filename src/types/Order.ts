@@ -5,6 +5,7 @@ export interface BaseOrder {
     hash: string;
     status?: string;
     relayer?: string;
+    txHash?: string;
 }
 
 interface Order extends BaseOrder {

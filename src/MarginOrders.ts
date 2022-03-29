@@ -250,6 +250,7 @@ class MarginOrders {
             createdTimestamp: new Date(order.createdTimestamp.toNumber() * 1000),
             status: order.status,
             relayer: order.relayer,
+            txHash: order.txHash,
         };
         const pairTokens = Orders.getPair(order.loanAssetAdr, order.collateralTokenAddress);
         orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;

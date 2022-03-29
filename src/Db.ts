@@ -140,6 +140,7 @@ class DbCtrl {
             json.status = item.status;
             json.type = item.type;
             json.relayer = item.relayer;
+            json.txHash = item.txHash;
             return item.type == 'limit' ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);
         });
     }

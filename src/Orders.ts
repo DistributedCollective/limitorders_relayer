@@ -232,6 +232,7 @@ class Orders {
             created: new Date(order.created.toNumber() * 1000),
             status: order.status,
             relayer: order.relayer,
+            txHash: order.txHash,
         };
         
         const pairTokens = this.getPair(order.fromToken, order.toToken);
