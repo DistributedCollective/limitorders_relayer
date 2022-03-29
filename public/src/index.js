@@ -138,14 +138,14 @@ class OrderBookCtrl {
                 list: [],
                 status: "",
                 page: 1,
-                limit: 10,
+                limit: 100,
                 total: 0,
             },
             margin: {
                 list: [],
                 status: "",
                 page: 1,
-                limit: 10,
+                limit: 100,
                 total: 0,
             }
         };
@@ -190,7 +190,31 @@ class OrderBookCtrl {
     }
 
     copy(text) {
-        navigator.clipboard.writeText(text);
+        if (!navigator.clipboard) {
+            setTimeout(() => {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+
+                // Avoid scrolling to bottom
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+
+                document.body.removeChild(textArea);
+            }, 10);
+        } else {
+            navigator.clipboard.writeText(text);
+        }
     }
 
     short(text) {

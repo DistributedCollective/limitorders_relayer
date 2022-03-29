@@ -27,7 +27,7 @@ export default class OrderModel extends BaseModel {
         filling: "filling",
         failed: "failed",
         failed_smallOrder: "failed_smallOrder",
-        filled_by_another: "filled_by_another",
+        filled: "filled",
         canceled: "canceled",
     }
 

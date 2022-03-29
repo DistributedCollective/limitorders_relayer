@@ -69,7 +69,7 @@
                     </table>
                     <ul uib-pagination  class="pagination-sm" boundary-links="true" total-items="ctrl.orders.spot.total" 
                         ng-model="ctrl.orders.spot.page" ng-change="ctrl.listOrders('spot')"
-                        items-per-page="10" max-size="5"
+                        items-per-page="100" max-size="5"
                         previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;">
                     </ul>
                 </uib-tab>
@@ -127,7 +127,7 @@
                         </tbody>
                     </table>
                     <ul uib-pagination class="pagination-sm" boundary-links="true" total-items="ctrl.orders.margin.total"
-                        ng-model="ctrl.orders.margin.page" ng-change="ctrl.listOrders('margin')" items-per-page="10" max-size="5"
+                        ng-model="ctrl.orders.margin.page" ng-change="ctrl.listOrders('margin')" items-per-page="100" max-size="5"
                         previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;">
                     </ul>
                 </uib-tab>

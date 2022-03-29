@@ -98,6 +98,7 @@ const calculateProfit = async (provider: ethers.providers.BaseProvider, order: B
 
 class Executor {
     provider: ethers.providers.BaseProvider;
+    checkingHashes: any = {};
 
     constructor(provider: ethers.providers.BaseProvider) {
         this.provider = provider;
@@ -133,12 +134,20 @@ class Executor {
         Log.d(`Checking ${openOrders.length} open spot orders`);
 
         for (const order of openOrders) {
-            const added = await Db.orderModel.findOne({ hash: order.hash });
-            if (added) continue;
+            const orderInDb = await Db.checkOrderHash(order.hash);
+
+            // skip checking order if it's been filled in another checking round
+            if (orderInDb.status != OrderModel.Statuss.open || this.checkFillBatchOrders[order.hash]) {
+                continue;
+            }
+
+            this.checkFillBatchOrders[order.hash] = true;
 
             const fromToken = Utils.findToken(tokens, order.fromToken);
             const toToken = Utils.findToken(tokens, order.toToken);
             const filledAmountIn = await this.filledAmountIn(order.hash);
+            let matched = false;
+
             if (fromToken && toToken && order.deadline.toNumber() * 1000 >= now && filledAmountIn.lt(order.amountIn)) {
                 const tradable = await Orders.checkTradable(
                     this.provider,
@@ -150,13 +159,22 @@ class Executor {
                 const orderSize = await Utils.convertUsdAmount(order.fromToken, order.amountIn);
                 if (tradable && orderSize.gt(config.minOrderSize)) {
                     executables.push(order);
+                    await Db.updateOrdersStatus([order.hash], OrderModel.Statuss.matched);
+                    const aux = order.trade
+                        ? " at " +
+                        order.trade?.executionPrice.toFixed(8) +
+                        " " +
+                        order.trade.route.path[order.trade.route.path.length - 1].symbol +
+                        "/" +
+                        order.trade.route.path[0].symbol
+                        : "";
+                    Log.d("Spot order matched: " + order.hash + aux);
+                    matched = true;
                 }
             }
-            if (Date.now() - now > timeout) break;
-        }
 
-        for (const order of executables) {
-            await Db.addOrder(order);
+            delete this.checkFillBatchOrders[order.hash];
+            if (Date.now() - now > timeout) break;
         }
 
         return executables;
@@ -171,17 +189,20 @@ class Executor {
         const executables: MarginOrder[] = [];
 
         for (const order of openOrders) {
-            const added = await Db.orderModel.findOne({ hash: order.hash });
-            if (added) continue;
-
+            const orderInDb = await Db.checkOrderHash(order.hash);
+            if (orderInDb.status != OrderModel.Statuss.open || this.checkFillBatchOrders[order.hash]) {
+                continue;
+            }
+            
+            this.checkFillBatchOrders[order.hash] = true;
             const tradable = await MarginOrders.checkTradable(this.provider, order);
             if (tradable) {
                 executables.push(order);
+                await Db.updateOrdersStatus([order.hash], OrderModel.Statuss.matched);
+                Log.d(`Margin order matched: ` + order.hash);
             }
-        }
 
-        for (const order of executables) {
-            await Db.addMarginOrder(order);
+            delete this.checkFillBatchOrders[order.hash];
         }
 
         return executables;

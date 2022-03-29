@@ -57,7 +57,7 @@ class Orders {
                             const order = await this.fetchOrder(hash, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
-                            if (order.amountIn.eq(filledAmountIn)) return null;
+                            if (await this.checkFilledOrder(order, provider)) return null;
                             if (!this.validOrderParams(order)) return null;
                             return order;
                         })
@@ -256,11 +256,13 @@ class Orders {
             const actualAmountIn = BigNumber.from(order.amountIn).sub(fee);
             const limitPrice = BigNumber.from(order.amountOutMin).mul(ethers.constants.WeiPerEther).div(actualAmountIn);
             orderDetail.estFee = formatEther(fee) + orderDetail.fromSymbol;
+            orderDetail.currentPrice = await this.getPrice(order.fromToken, order.toToken, order.amountIn);
 
             if (orderDetail.isSell) {
                 orderDetail.limitPrice = ">= " + formatEther(limitPrice);
             } else {
                 orderDetail.limitPrice = "<= " + (1 / Number(formatEther(limitPrice)));
+                orderDetail.currentPrice = String(1/Number(orderDetail.currentPrice));
             }
         }
 
@@ -274,6 +276,38 @@ class Orders {
 
         return i1 < i2 ? [config.tokens[i1], config.tokens[i2]]
             : [config.tokens[i2], config.tokens[i1]];
+    }
+
+
+    static async checkFilledOrder(order: Order, provider: ethers.providers.BaseProvider) {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const filledAmountIn = await settlement.filledAmountInOfHash(order.hash);
+        if (order.amountIn.eq(filledAmountIn)) {
+            const added = await Db.checkOrderHash(order.hash);
+            if (!added) {
+                new Promise(async (resolve) => {
+                    const filterFilled = settlement.filters.FeeTransferred(order.hash);
+                    const event = await settlement.queryFilter(filterFilled);
+                    const filler = event && event[0] && event[0].args && event[0].args.recipient;
+                    if (filler) {
+                        await Db.addOrder(order, { status: OrderModel.Statuss.filled });
+                        await Db.updateOrderFiller(order.hash, filler);
+                        console.log("Check spot order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
+                    }
+                    resolve(null);
+                });
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static async getPrice(fromToken: string, toToken: string, amount: ethers.BigNumber) {
+        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, RSK.Mainnet.provider);
+        const path = await swap.conversionPath(fromToken, toToken);
+        const amountOut = await swap.rateByPath(path, amount);
+        const price = BigNumber.from(amountOut).mul(ethers.constants.WeiPerEther).div(amount);
+        return formatEther(price);
     }
 }
 

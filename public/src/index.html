@@ -83,9 +83,10 @@
                 Hash: {{ctrl.orderDetail.hash}}<br/>
                 Maker: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.maker}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br/>
                 Pair: <span>{{ctrl.orderDetail.isSell ? 'Sell' : 'Buy'}} {{ctrl.orderDetail.pair}}</span> <br/>
-                Amount in: {{ctrl.orderDetail.amountIn}} {{ctrl.orderDetail.fromSymbol}}<br/>
-                Amount out min: {{ctrl.orderDetail.amountOutMin}} {{ctrl.orderDetail.toSymbol}}<br/>
+                Amount in: {{ctrl.orderDetail.amountIn}}<br/>
+                Amount out min: {{ctrl.orderDetail.amountOutMin}}<br/>
                 Limit Price: {{ctrl.orderDetail.limitPrice}} {{ctrl.orderDetail.pair}}<br />
+                Current Price: {{ctrl.orderDetail.currentPrice}}<br />
                 Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.recipient}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br />
                 Deadline: <span ng-bind="{{ctrl.orderDetail.deadline*1000}}|date:'short'"></span><br/>
                 Created at: <span ng-bind="{{ctrl.orderDetail.created*1000}}|date:'short'"></span><br/>
@@ -102,6 +103,7 @@
                 Loan Token Sent: {{ctrl.marginOrderDetail.loanTokenSent}}<br/>
                 Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br/>
                 Limit Price: {{ctrl.marginOrderDetail.limitPrice}} {{ctrl.marginOrderDetail.pair}}<br/>
+                Current Price: {{ctrl.marginOrderDetail.currentPrice}}<br />
                 Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline*1000}}|date:'short'"></span><br/>
                 Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp*1000}}|date:'short'"></span><br/>
                 Cancelled: {{ctrl.marginOrderDetail.cancelled}}<br />

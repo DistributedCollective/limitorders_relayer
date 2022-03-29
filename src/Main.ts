@@ -24,7 +24,7 @@ if (!config.mainnet) {
 // tslint:disable-next-line:max-func-body-length
 
 export const start = async (io: IO.Server) => {
-    Db.initDb(config.db);
+    await Db.initDb(config.db);
 
     Promise.all([
         processLimitOrderes(),
@@ -88,21 +88,7 @@ const processLimitOrderes = async () => {
         if (blockNumber % 2 === 0) {
             try {
                 await Promise.all([
-                    (async () => {
-                        const matched = await executor.match(tokens, pairs, 200000);
-                        Log.d("matched " + matched.length + " orders");
-                        matched.forEach(order => {
-                            const aux = order.trade
-                                ? " at " +
-                                order.trade?.executionPrice.toFixed(8) +
-                                " " +
-                                order.trade.route.path[order.trade.route.path.length - 1].symbol +
-                                "/" +
-                                order.trade.route.path[0].symbol
-                                : "";
-                            Log.d("  " + order.hash + aux);
-                        });
-                    })(),
+                    executor.match(tokens, pairs, 200000),
                     executor.checkFillBatchOrders(mainnet, 'limit')
                 ]);
             } catch (e) {
@@ -117,7 +103,7 @@ const processLimitOrderes = async () => {
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
-                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled_by_another);
+                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled);
             }
         }
     });
@@ -172,7 +158,7 @@ const processMarginOrders = async () => {
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
-                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled_by_another);
+                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled);
             }
         }
     });

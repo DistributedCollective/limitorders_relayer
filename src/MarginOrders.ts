@@ -54,7 +54,9 @@ class MarginOrders {
                             const order = await this.fetchOrder(hash, provider, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
                             const filledAmountIn = await settlement.filledAmountInOfHash(hash);
-                            if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) return null;
+                            if (await this.checkFilledOrder(order, provider)) {
+                                return null;
+                            }
                             if (!this.validOrderParams(order)) return null;
                             return order;
                         })
@@ -232,7 +234,7 @@ class MarginOrders {
         return orderSize.gt(config.minOrderSize) && curPrice.gte(order.minEntryPrice);
     }
 
-    static async parseOrderDetail(order: MarginOrder) {
+    static async parseOrderDetail(order: MarginOrder, checkFee = false) {
         await this.checkLoanAdr(order, RSK.Mainnet.provider);
         const orderDetail: any = {
             hash: order.hash,
@@ -251,6 +253,7 @@ class MarginOrders {
         };
         const pairTokens = Orders.getPair(order.loanAssetAdr, order.collateralTokenAddress);
         orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;
+
         if (order.loanAssetAdr.toLowerCase() == pairTokens[0].address.toLowerCase()) {
             orderDetail.fromSymbol = pairTokens[0].name;
             orderDetail.toSymbol = pairTokens[1].name;
@@ -263,10 +266,42 @@ class MarginOrders {
             orderDetail.limitPrice = "<= " + (1 / Number(orderDetail.minEntryPrice));
         }
 
+        if (checkFee) {
+            const totalDeposited = await this.getTotalDeposited(order, RSK.Mainnet.provider);
+            orderDetail.currentPrice = await Orders.getPrice(order.loanAssetAdr, order.collateralTokenAddress, totalDeposited);
+            if (orderDetail.pos == 'Long') {
+                orderDetail.currentPrice = String(1 / Number(orderDetail.currentPrice));
+            }
+        }
+
         orderDetail.loanTokenSent = formatEther(order.loanTokenSent) + ' ' + orderDetail.fromSymbol;
         orderDetail.collateralTokenSent = formatEther(order.collateralTokenSent) + ' ' + orderDetail.toSymbol;
 
         return orderDetail;
+    }
+
+    static async checkFilledOrder(order: MarginOrder, provider: ethers.providers.BaseProvider) {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const filledAmountIn = await settlement.filledAmountInOfHash(order.hash);
+        if (order.collateralTokenSent.add(order.loanTokenSent).eq(filledAmountIn)) {
+            const added = await Db.checkOrderHash(order.hash);
+            if (!added) {
+                new Promise(async (resolve) => {
+                    const filterFilled = settlement.filters.FeeTransferred(order.hash);
+                    const event = await settlement.queryFilter(filterFilled);
+                    const filler = event && event[0] && event[0].args && event[0].args.recipient;
+
+                    if (filler) {
+                        await Db.addMarginOrder(order, { status: OrderModel.Statuss.filled });
+                        await Db.updateOrderFiller(order.hash, filler);
+                        console.log("Check margin order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
+                    }
+                    resolve(null);
+                });
+            }
+            return true;
+        }
+        return false;
     }
 }
 

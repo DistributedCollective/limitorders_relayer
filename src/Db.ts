@@ -48,9 +48,13 @@ class DbCtrl {
         const model: any = await this.orderModel.findOne({ hash: hash });
         if (!model) return null;
 
+        const json = JSON.parse(model.detail);
+        json.status = model.status;
+        json.type = model.type;
+
         return model.type == 'limit' ? 
-            Orders.parseOrder(JSON.parse(model.detail)) :
-            MarginOrders.parseOrder(JSON.parse(model.detail));
+            Orders.parseOrder(json) :
+            MarginOrders.parseOrder(json);
     }
 
     async addOrder(order: Order, { status = 'matched'} = {}) {
@@ -152,8 +156,8 @@ class DbCtrl {
         try {
             let profit = 0;
             const sqlQuery = last24H ? // select either all actions or only the last 24h ones
-                `SELECT * FROM orders WHERE dateAdded BETWEEN DATETIME('now', '-1 day') AND DATETIME('now')` :
-                `SELECT * FROM orders`;
+                `SELECT * FROM orders WHERE dateAdded BETWEEN DATETIME('now', '-1 day') AND DATETIME('now') AND status IN ('success', 'failed')` :
+                `SELECT * FROM orders WHERE status IN ('success', 'failed')`;
             const allRows: any = await this.orderModel.all(sqlQuery);
             (allRows || []).forEach((row) => {
                 if (row.profit) {
