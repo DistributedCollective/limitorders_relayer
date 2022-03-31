@@ -132,6 +132,7 @@ class Executor {
         const now = Date.now();
         const openOrders: Order[] = await Db.findOrders('limit', {
             status: OrderModel.Statuss.open,
+            latest: true,
             batchId: null
         });
         Log.d(`Checking ${openOrders.length} open spot orders`);
@@ -186,6 +187,7 @@ class Executor {
     async matchMarginOrders() {
         const openOrders: MarginOrder[] = await Db.findOrders('margin', {
             status: OrderModel.Statuss.open,
+            latest: true,
             batchId: null
         });
         Log.d(`Checking ${openOrders.length} open margin orders`);

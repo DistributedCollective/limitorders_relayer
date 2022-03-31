@@ -15,3 +15,11 @@ a {
 h2 {
   margin-top: 2rem;
 }
+
+.bg-green {
+    background-color: rgba(33, 243, 96, 0.15);
+}
+
+.bg-red {
+    background-color: rgba(246, 53, 53, 0.15);
+}

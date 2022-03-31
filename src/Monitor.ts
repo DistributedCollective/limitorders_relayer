@@ -131,7 +131,7 @@ class Monitor {
         const orderDetails = [];
         for (const order of orders) {
             let orderDetail;
-            if (order.type == 'limit') orderDetail = await Orders.parseOrderDetail(order);
+            if (order.type == 'limit') orderDetail = await Orders.parseOrderDetail(order, true);
             else orderDetail = await MarginOrders.parseOrderDetail(order);
             orderDetails.push(orderDetail);
         }

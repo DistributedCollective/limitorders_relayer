@@ -10,10 +10,11 @@ export default {
         orderBook: '0xfD4D1FBFC652f5b3D98881b9346635399F1e6254',
         orderBookMargin: '0x1213B6D3552DA46dF4767EeD8cb2d0BD7D8e913d',
         sovrynSwap: '0x61172b53423e205a399640e5283e51fe60ec2256',
+        priceFeeds: "0x7f38c422b99075f63C9c919ECD200DF8d2Cf5BD4",
     },
     tokens: tokens,
     minOrderSize: String(1e18), //xusd
-    maxOrdersInBatch: 5,
+    maxOrdersInBatch: 2,
     accounts: accounts.testnet,
     blockExplorer: "https://explorer.testnet.rsk.co/",
     loanContracts: {

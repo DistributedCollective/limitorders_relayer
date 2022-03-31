@@ -12,6 +12,7 @@ import Db from './Db';
 import OrderModel from "./models/OrderModel";
 import Order from "./types/Order";
 import MarginOrder from "./types/MarginOrder";
+import PriceFeeds from "./PriceFeeds";
 
 
 const mainnet = RSK.Mainnet;
@@ -25,6 +26,7 @@ if (!config.mainnet) {
 
 export const start = async (io: IO.Server) => {
     await Db.initDb(config.db);
+    PriceFeeds.init(mainnet.provider);
 
     Promise.all([
         processLimitOrderes(),
@@ -78,8 +80,8 @@ const processLimitOrderes = async () => {
     Log.d("listening to new blocks...");
     mainnet.provider.on("block", async blockNumber => {
         // Log.d("block: " + blockNumber);
-        // every 12 hours
-        if (blockNumber % 2880 === 0) {
+        // every 3 minutes
+        if (blockNumber % 5 === 0) {
             const latest = await updateTokensAndPairs(mainnet.provider);
             tokens = latest.tokens;
             pairs = latest.pairs;
@@ -87,10 +89,7 @@ const processLimitOrderes = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                await Promise.all([
-                    executor.match(tokens, pairs, 200000),
-                    executor.checkFillBatchOrders(mainnet, 'limit')
-                ]);
+                await executor.match(tokens, pairs, 200000);
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
@@ -107,6 +106,17 @@ const processLimitOrderes = async () => {
             }
         }
     });
+    setInterval(async () => {
+        try {
+            await Promise.all([
+                executor.checkFillBatchOrders(mainnet, 'limit'),
+                executor.checkFillBatchOrders(mainnet, 'margin'),
+            ]);
+        } catch (e) {
+            Log.e("error: " + e.reason || e.message || e.toString());
+            console.error(e);
+        }
+    }, 15000);
 };
 
 const processMarginOrders = async () => {
@@ -142,10 +152,7 @@ const processMarginOrders = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                await Promise.all([
-                    executor.matchMarginOrders(),
-                    executor.checkFillBatchOrders(mainnet, 'margin')
-                ]);
+                await executor.matchMarginOrders();
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
@@ -178,8 +185,9 @@ const updateTokensAndPairs = async (provider: ethers.providers.BaseProvider) => 
         Log.d(token.symbol + ":  " + token.address);
     });
     Log.d("found " + pairs.length + " pairs");
-    pairs.forEach(pair => {
-        Log.d(`${pair.token0.symbol} - ${pair.token1.symbol}`);
-    });
+    // pairs.forEach(pair => {
+    //     Log.d(`${pair.token0.symbol} - ${pair.token1.symbol}`);
+    // });
+    await PriceFeeds.updatePairs(pairs);
     return { tokens, pairs };
 };

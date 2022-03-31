@@ -87,9 +87,10 @@
                 Amount out min: {{ctrl.orderDetail.amountOutMin}}<br/>
                 Limit Price: {{ctrl.orderDetail.limitPrice}} {{ctrl.orderDetail.pair}}<br />
                 Current Price: {{ctrl.orderDetail.currentPrice}}<br />
+                Est fee: {{ctrl.orderDetail.estFee}}<br />
                 Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.recipient}}" target="_blank">{{ctrl.orderDetail.maker}}</a><br />
-                Deadline: <span ng-bind="{{ctrl.orderDetail.deadline*1000}}|date:'short'"></span><br/>
-                Created at: <span ng-bind="{{ctrl.orderDetail.created*1000}}|date:'short'"></span><br/>
+                Deadline: <span ng-bind="{{ctrl.orderDetail.deadline}}|date:'short'"></span><br/>
+                Created at: <span ng-bind="{{ctrl.orderDetail.created}}|date:'short'"></span><br/>
                 Cancelled: {{ctrl.orderDetail.cancelled}}<br/>
                 FilledAmount: {{ctrl.orderDetail.filledAmount}}
             </p>
@@ -104,8 +105,8 @@
                 Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br/>
                 Limit Price: {{ctrl.marginOrderDetail.limitPrice}} {{ctrl.marginOrderDetail.pair}}<br/>
                 Current Price: {{ctrl.marginOrderDetail.currentPrice}}<br />
-                Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline*1000}}|date:'short'"></span><br/>
-                Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp*1000}}|date:'short'"></span><br/>
+                Deadline: <span ng-bind="{{ctrl.marginOrderDetail.deadline}}|date:'short'"></span><br/>
+                Created at: <span ng-bind="{{ctrl.marginOrderDetail.createdTimestamp}}|date:'short'"></span><br/>
                 Cancelled: {{ctrl.marginOrderDetail.cancelled}}<br />
                 FilledAmount: {{ctrl.marginOrderDetail.filledAmount}}
             </p>

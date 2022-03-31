@@ -71,4 +71,13 @@ export class Utils {
     static findToken (tokens: Token[], tokenAddress: string) {
         return tokens.find(token => token.address.toLowerCase() === tokenAddress.toLowerCase());
     };
+
+    static shortNum(num) {
+        let decimals = 4;
+        if (Number(num) < 1) {
+            decimals = 8;
+        }
+        const [int, float] = String(num).split('.');
+        return int + "." + (float || "0").substring(0, decimals);
+    }
 }

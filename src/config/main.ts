@@ -11,6 +11,7 @@ export default {
         orderBook: '0x0064237629be0B8eDc5D09De0cc897f443F66540',
         orderBookMargin: '0xfb450793AFC52727fAd789dAE06E6ECF01cBBa61',
         sovrynSwap: '0x98ace08d2b759a265ae326f010496bcd63c15afc',
+        priceFeeds: '0x437AC62769f386b2d238409B7f0a7596d36506e4',
     },
     tokens: tokens,
     minOrderSize: String(10e18),

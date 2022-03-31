@@ -23,6 +23,7 @@ interface Config {
         orderBook: string;
         orderBookMargin: string;
         sovrynSwap: string;
+        priceFeeds: string;
     };
     tokens: TokenEntry[];
     minOrderSize: number;

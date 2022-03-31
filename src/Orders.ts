@@ -1,5 +1,5 @@
 import { ethers, BigNumber } from "ethers";
-import { OrderBookSwapLogic__factory, SettlementLogic__factory } from "./contracts";
+import { OrderBookSwapLogic__factory, SettlementLogic, SettlementLogic__factory } from "./contracts";
 import Order from "./types/Order";
 import config from "./config";
 import { Currency, Pair, Token } from "@sushiswap/sdk";
@@ -11,15 +11,31 @@ import Db from "./Db";
 import OrderModel from "./models/OrderModel";
 import RSK from "./RSK";
 import TokenEntry from "./types/TokenEntry";
+import PriceFeeds from "./PriceFeeds";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
 const LIMIT = 20;
 const BLOCKS_PER_DAY = 20000;
+let _relayerFeePercent, _minSwapOrderTxFee;
 
 const equalsCurrency = (currency1: Currency, currency2: Currency) => {
     return currency1.name === currency2.name;
+}
+
+const getRelayerFeePercent = async (settlement: SettlementLogic) => {
+    if (!_relayerFeePercent) {
+        _relayerFeePercent = await settlement.relayerFeePercent();
+    }
+    return _relayerFeePercent;
+}
+
+const getMinSwapOrderTxFee = async (settlement: SettlementLogic) => {
+    if (!_minSwapOrderTxFee) {
+        _minSwapOrderTxFee = await settlement.minSwapOrderTxFee();
+    }
+    return _minSwapOrderTxFee;
 }
 
 class Orders {
@@ -138,15 +154,17 @@ class Orders {
 
     static async estimateOrderFee(provider: ethers.providers.BaseProvider, tokenIn: Token, amountIn: BigNumber): Promise<BigNumber> {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
-        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
-        const relayerFeePercent = await settlement.relayerFeePercent();
-        let txFee = await settlement.minSwapOrderTxFee();
+        // const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
+        const relayerFeePercent = await getRelayerFeePercent(settlement);
+        let txFee = await getMinSwapOrderTxFee(settlement);
         let orderFee = amountIn.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
         const wrbtcAdr = Utils.getTokenAddress('wrbtc').toLowerCase();
 
         if (tokenIn.address.toLowerCase() != wrbtcAdr) {
-            const path = await swap.conversionPath(wrbtcAdr, tokenIn.address);
-            txFee = await swap.rateByPath(path, txFee);
+            // const path = await swap.conversionPath(wrbtcAdr, tokenIn.address);
+            // txFee = await swap.rateByPath(path, txFee);
+            const rbtcPrice = PriceFeeds.getPrice(wrbtcAdr, tokenIn.address);
+            txFee = BigNumber.from(txFee).mul(parseEther(rbtcPrice)).div(ethers.constants.WeiPerEther);
         }
 
         if (orderFee.lt(txFee)) return txFee;
@@ -249,22 +267,23 @@ class Orders {
             orderDetail.isSell = false;
         }
 
-        orderDetail.amountIn = formatEther(order.amountIn) + ' ' + orderDetail.fromSymbol;
-        orderDetail.amountOutMin = formatEther(order.amountOutMin) + ' ' + orderDetail.toSymbol;
+        orderDetail.amountIn = Utils.shortNum(formatEther(order.amountIn)) + ' ' + orderDetail.fromSymbol;
+        orderDetail.amountOutMin = Utils.shortNum(formatEther(order.amountOutMin)) + ' ' + orderDetail.toSymbol;
 
         if (checkFee) {
             const fee = await Orders.estimateOrderFee(RSK.Mainnet.provider, { address: order.fromToken } as any, order.amountIn);
             const actualAmountIn = BigNumber.from(order.amountIn).sub(fee);
             const limitPrice = BigNumber.from(order.amountOutMin).mul(ethers.constants.WeiPerEther).div(actualAmountIn);
-            orderDetail.estFee = formatEther(fee) + orderDetail.fromSymbol;
-            orderDetail.currentPrice = await this.getPrice(order.fromToken, order.toToken, order.amountIn);
+            orderDetail.estFee = formatEther(fee) + ' ' + orderDetail.fromSymbol;
+            orderDetail.currentPrice = await PriceFeeds.getPrice(order.fromToken, order.toToken);
 
             if (orderDetail.isSell) {
-                orderDetail.limitPrice = ">= " + formatEther(limitPrice);
+                orderDetail.limitPrice = ">= " + Utils.shortNum(formatEther(limitPrice));
             } else {
-                orderDetail.limitPrice = "<= " + (1 / Number(formatEther(limitPrice)));
+                orderDetail.limitPrice = "<= " + Utils.shortNum(1 / Number(formatEther(limitPrice)));
                 orderDetail.currentPrice = String(1/Number(orderDetail.currentPrice));
             }
+            orderDetail.currentPrice = Utils.shortNum(orderDetail.currentPrice);
         }
 
         return orderDetail;
@@ -301,14 +320,6 @@ class Orders {
             return true;
         }
         return false;
-    }
-
-    static async getPrice(fromToken: string, toToken: string, amount: ethers.BigNumber) {
-        const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, RSK.Mainnet.provider);
-        const path = await swap.conversionPath(fromToken, toToken);
-        const amountOut = await swap.rateByPath(path, amount);
-        const price = BigNumber.from(amountOut).mul(ethers.constants.WeiPerEther).div(amount);
-        return formatEther(price);
     }
 }
 

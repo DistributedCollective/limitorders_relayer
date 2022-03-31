@@ -39,18 +39,21 @@
                                 <th>Order Type</th>
                                 <th>Amount in</th>
                                 <th>Amount received</th>
+                                <th>Limit price</th>
                                 <th>Status</th>
                                 <th>Hash</th>
                                 <th>Filler</th>
+                                <th>Fill tx</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr ng-repeat="order in ctrl.orders.spot.list">
+                            <tr ng-repeat="order in ctrl.orders.spot.list" ng-class="{'bg-green': !order.isSell, 'bg-red': order.isSell}">
                                 <td>{{ order.created |date:'dd/MM/yyyy hh:mm' }}</td>
                                 <td>{{ order.pair }}</td>
                                 <td>{{ order.isSell ? 'Sell' : 'Buy' }}</td>
                                 <td>{{ order.amountIn }}</td>
                                 <td>{{ order.amountOutMin }}</td>
+                                <td>{{ order.limitPrice }}</td>
                                 <td>{{ order.status }}</td>
                                 <td>
                                     <a href="javascript:0" title="copy" ng-click="ctrl.copy(order.hash)"
@@ -62,6 +65,11 @@
                                 <td>
                                     <a ng-if="order.relayer != null" href="{{ctrl.blockExplorer}}address/{{order.relayer}}" target="_blank">
                                         {{ctrl.short(order.relayer)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.txHash != null" href="{{ctrl.blockExplorer}}tx/{{order.txHash}}" target="_blank">
+                                        {{ctrl.short(order.txHash)}}
                                     </a>
                                 </td>
                             </tr>
@@ -97,10 +105,11 @@
                                 <th>Status</th>
                                 <th>Hash</th>
                                 <th>Filler</th>
+                                <th>Fill tx</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr ng-repeat="order in ctrl.orders.margin.list">
+                            <tr ng-repeat="order in ctrl.orders.margin.list" ng-class="{'bg-green': order.pos == 'Long', 'bg-red': order.pos == 'Short'}">
                                 <td>{{ order.createdTimestamp |date:'dd/MM/yyyy hh:mm' }}</td>
                                 <td>{{ order.pair }}</td>
                                 <td>{{ order.pos }}</td>
@@ -121,6 +130,11 @@
                                 <td>
                                     <a ng-if="order.relayer != null" href="{{ctrl.blockExplorer}}address/{{order.relayer}}" target="_blank">
                                         {{ctrl.short(order.relayer)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.txHash != null" href="{{ctrl.blockExplorer}}tx/{{order.txHash}}" target="_blank">
+                                        {{ctrl.short(order.txHash)}}
                                     </a>
                                 </td>
                             </tr>
