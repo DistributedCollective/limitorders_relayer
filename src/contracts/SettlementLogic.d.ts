@@ -24,7 +24,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   functions: {
     "DOMAIN_SEPARATOR1()": FunctionFragment;
     "DOMAIN_SEPARATOR2()": FunctionFragment;
-    "RBTC_ADDRESS()": FunctionFragment;
     "UNLIMITED_ALLOWANCE()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "allCanceledHashes()": FunctionFragment;
@@ -69,10 +68,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "DOMAIN_SEPARATOR2",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "RBTC_ADDRESS",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -324,10 +319,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "RBTC_ADDRESS",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "UNLIMITED_ALLOWANCE",
     data: BytesLike
   ): Result;
@@ -450,7 +441,7 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "FeeSplitTransferred(bytes32,address,uint256)": EventFragment;
     "FeeTransferred(bytes32,address,uint256,address)": EventFragment;
     "MarginOrderCanceled(bytes32,address)": EventFragment;
-    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address,uint256)": EventFragment;
+    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address)": EventFragment;
     "MarginTrade(address,address,uint256,uint256,uint256,uint256,address)": EventFragment;
     "OrderCanceled(bytes32,address)": EventFragment;
     "OrderFilled(bytes32,address,uint256,uint256,address[],uint256)": EventFragment;
@@ -519,8 +510,7 @@ export type MarginOrderFilledEvent = TypedEvent<
     string,
     BigNumber,
     BigNumber,
-    string,
-    BigNumber
+    string
   ] & {
     hash: string;
     trader: string;
@@ -531,7 +521,6 @@ export type MarginOrderFilledEvent = TypedEvent<
     loanTokenSent: BigNumber;
     collateralTokenSent: BigNumber;
     collateralTokenAddress: string;
-    filledPrice: BigNumber;
   }
 >;
 
@@ -675,8 +664,6 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR1(overrides?: CallOverrides): Promise<[string]>;
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<[string]>;
-
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
 
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<[BigNumber]>;
 
@@ -945,8 +932,6 @@ export class SettlementLogic extends BaseContract {
 
   DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
-  RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
-
   UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
   WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
@@ -1202,8 +1187,6 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR1(overrides?: CallOverrides): Promise<string>;
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
-
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1523,7 +1506,7 @@ export class SettlementLogic extends BaseContract {
       trader?: string | null
     ): TypedEventFilter<[string, string], { hash: string; trader: string }>;
 
-    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address,uint256)"(
+    "MarginOrderFilled(bytes32,address,uint256,uint256,uint256,address,uint256,uint256,address)"(
       hash?: BytesLike | null,
       trader?: string | null,
       principal?: null,
@@ -1532,8 +1515,7 @@ export class SettlementLogic extends BaseContract {
       loanTokenAddress?: null,
       loanTokenSent?: null,
       collateralTokenSent?: null,
-      collateralTokenAddress?: null,
-      filledPrice?: null
+      collateralTokenAddress?: null
     ): TypedEventFilter<
       [
         string,
@@ -1544,8 +1526,7 @@ export class SettlementLogic extends BaseContract {
         string,
         BigNumber,
         BigNumber,
-        string,
-        BigNumber
+        string
       ],
       {
         hash: string;
@@ -1557,7 +1538,6 @@ export class SettlementLogic extends BaseContract {
         loanTokenSent: BigNumber;
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
-        filledPrice: BigNumber;
       }
     >;
 
@@ -1570,8 +1550,7 @@ export class SettlementLogic extends BaseContract {
       loanTokenAddress?: null,
       loanTokenSent?: null,
       collateralTokenSent?: null,
-      collateralTokenAddress?: null,
-      filledPrice?: null
+      collateralTokenAddress?: null
     ): TypedEventFilter<
       [
         string,
@@ -1582,8 +1561,7 @@ export class SettlementLogic extends BaseContract {
         string,
         BigNumber,
         BigNumber,
-        string,
-        BigNumber
+        string
       ],
       {
         hash: string;
@@ -1595,7 +1573,6 @@ export class SettlementLogic extends BaseContract {
         loanTokenSent: BigNumber;
         collateralTokenSent: BigNumber;
         collateralTokenAddress: string;
-        filledPrice: BigNumber;
       }
     >;
 
@@ -1869,8 +1846,6 @@ export class SettlementLogic extends BaseContract {
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<BigNumber>;
 
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
-
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
@@ -2130,8 +2105,6 @@ export class SettlementLogic extends BaseContract {
     DOMAIN_SEPARATOR1(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     UNLIMITED_ALLOWANCE(
       overrides?: CallOverrides
