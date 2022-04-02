@@ -23,7 +23,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   functions: {
     "DOMAIN_SEPARATOR1()": FunctionFragment;
     "DOMAIN_SEPARATOR2()": FunctionFragment;
-    "RBTC_ADDRESS()": FunctionFragment;
     "UNLIMITED_ALLOWANCE()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
@@ -53,10 +52,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "DOMAIN_SEPARATOR2",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "RBTC_ADDRESS",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -141,10 +136,6 @@ interface SettlementProxyInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "DOMAIN_SEPARATOR2",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "RBTC_ADDRESS",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -285,8 +276,6 @@ export class SettlementProxy extends BaseContract {
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<[string]>;
 
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
-
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
@@ -377,8 +366,6 @@ export class SettlementProxy extends BaseContract {
 
   DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
 
-  RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
-
   UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
   WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
@@ -461,8 +448,6 @@ export class SettlementProxy extends BaseContract {
     DOMAIN_SEPARATOR1(overrides?: CallOverrides): Promise<string>;
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<string>;
-
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -582,8 +567,6 @@ export class SettlementProxy extends BaseContract {
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<BigNumber>;
 
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
-
     UNLIMITED_ALLOWANCE(overrides?: CallOverrides): Promise<BigNumber>;
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
@@ -670,8 +653,6 @@ export class SettlementProxy extends BaseContract {
     DOMAIN_SEPARATOR1(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     DOMAIN_SEPARATOR2(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    RBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     UNLIMITED_ALLOWANCE(
       overrides?: CallOverrides

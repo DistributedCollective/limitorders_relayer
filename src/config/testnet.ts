@@ -4,7 +4,7 @@ import accounts from '../secrets/accounts';
 export default {
     rpcNode: 'https://testnet.sovryn.app/rpc',
     db: 'limitorders_relayer_test.db',
-    serverPort: 3001,
+    serverPort: 3030,
     contracts: {
         settlement: '0x4dfb9ab1653Eb5A295109E02e37fc222D85fdA74',
         orderBook: '0xfD4D1FBFC652f5b3D98881b9346635399F1e6254',

@@ -27,7 +27,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
     "UNLIMITED_ALLOWANCE()": FunctionFragment;
     "WRBTC_ADDRESS()": FunctionFragment;
     "allCanceledHashes()": FunctionFragment;
-    "approveTokenLoan(address,address,uint256)": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
     "cancelMarginOrder((bytes32,uint256,address,uint256,uint256,address,address,uint256,bytes32,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
     "cancelOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
@@ -81,10 +80,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   encodeFunctionData(
     functionFragment: "allCanceledHashes",
     values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "approveTokenLoan",
-    values: [string, string, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "balanceOf", values: [string]): string;
   encodeFunctionData(
@@ -328,10 +323,6 @@ interface SettlementLogicInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "allCanceledHashes",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "approveTokenLoan",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
@@ -669,14 +660,10 @@ export class SettlementLogic extends BaseContract {
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<[string]>;
 
+    /**
+     * Returns list of all cancelled hashes.
+     */
     allCanceledHashes(overrides?: CallOverrides): Promise<[string[]]>;
-
-    approveTokenLoan(
-      loanToken: string,
-      asset: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string | Promise<string> }
-    ): Promise<ContractTransaction>;
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<[BigNumber]>;
 
@@ -722,6 +709,9 @@ export class SettlementLogic extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[boolean]>;
 
+    /**
+     * Returns the order hashes and the cancelled flag.
+     */
     checkCanceledHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
@@ -731,6 +721,9 @@ export class SettlementLogic extends BaseContract {
       }
     >;
 
+    /**
+     * Returns the filled orders and the respective amounts.
+     */
     checkFilledAmountHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
@@ -740,6 +733,10 @@ export class SettlementLogic extends BaseContract {
       }
     >;
 
+    /**
+     * User deposits a balance to the contract.
+     * @param to Receiver of the funds.
+     */
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -882,31 +879,57 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    /**
+     * Initially set to 200$ in mainnet.
+     * Set min margin order size.
+     * @param _minMarginOrderSize New minimum margin limit order size.
+     */
     setMinMarginOrderSize(
       _minMarginOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Set minimum tx fee for margin order.
+     * @param _newGas New minimum txn gas price for margin limit orders.
+     */
     setMinMarginOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Initially set to 100$ in mainnet.
+     * Set min swap order size.
+     * @param _minSwapOrderSize New minimum spot limit order size.
+     */
     setMinSwapOrderSize(
       _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Set minimum tx fee for swap order.
+     * @param _newGas New minimum txn gas price for spot limit orders.
+     */
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Set price feeds contract.
+     * @param _priceFeeds New address of price feeds oracle.
+     */
     setPriceFeeds(
       _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Sets relayer fee.
+     * @param _relayerFeePercent Relayer fee percentage.
+     */
     setRelayerFee(
       _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -922,6 +945,10 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
+    /**
+     * Withdraw user balance.
+     * @param amount Amount to be withdrawn.
+     */
     withdraw(
       amount: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -936,14 +963,10 @@ export class SettlementLogic extends BaseContract {
 
   WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
+  /**
+   * Returns list of all cancelled hashes.
+   */
   allCanceledHashes(overrides?: CallOverrides): Promise<string[]>;
-
-  approveTokenLoan(
-    loanToken: string,
-    asset: string,
-    amount: BigNumberish,
-    overrides?: Overrides & { from?: string | Promise<string> }
-  ): Promise<ContractTransaction>;
 
   balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -986,16 +1009,26 @@ export class SettlementLogic extends BaseContract {
 
   canceledOfHash(arg0: BytesLike, overrides?: CallOverrides): Promise<boolean>;
 
+  /**
+   * Returns the order hashes and the cancelled flag.
+   */
   checkCanceledHashes(
     hashes: BytesLike[],
     overrides?: CallOverrides
   ): Promise<([string, boolean] & { hash: string; canceled: boolean })[]>;
 
+  /**
+   * Returns the filled orders and the respective amounts.
+   */
   checkFilledAmountHashes(
     hashes: BytesLike[],
     overrides?: CallOverrides
   ): Promise<([string, BigNumber] & { hash: string; amount: BigNumber })[]>;
 
+  /**
+   * User deposits a balance to the contract.
+   * @param to Receiver of the funds.
+   */
   deposit(
     to: string,
     overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -1138,31 +1171,57 @@ export class SettlementLogic extends BaseContract {
 
   relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
+  /**
+   * Initially set to 200$ in mainnet.
+   * Set min margin order size.
+   * @param _minMarginOrderSize New minimum margin limit order size.
+   */
   setMinMarginOrderSize(
     _minMarginOrderSize: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Set minimum tx fee for margin order.
+   * @param _newGas New minimum txn gas price for margin limit orders.
+   */
   setMinMarginOrderTxFee(
     _newGas: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Initially set to 100$ in mainnet.
+   * Set min swap order size.
+   * @param _minSwapOrderSize New minimum spot limit order size.
+   */
   setMinSwapOrderSize(
     _minSwapOrderSize: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Set minimum tx fee for swap order.
+   * @param _newGas New minimum txn gas price for spot limit orders.
+   */
   setMinSwapOrderTxFee(
     _newGas: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Set price feeds contract.
+   * @param _priceFeeds New address of price feeds oracle.
+   */
   setPriceFeeds(
     _priceFeeds: string,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Sets relayer fee.
+   * @param _relayerFeePercent Relayer fee percentage.
+   */
   setRelayerFee(
     _relayerFeePercent: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
@@ -1178,6 +1237,10 @@ export class SettlementLogic extends BaseContract {
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
+  /**
+   * Withdraw user balance.
+   * @param amount Amount to be withdrawn.
+   */
   withdraw(
     amount: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
@@ -1192,14 +1255,10 @@ export class SettlementLogic extends BaseContract {
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<string>;
 
+    /**
+     * Returns list of all cancelled hashes.
+     */
     allCanceledHashes(overrides?: CallOverrides): Promise<string[]>;
-
-    approveTokenLoan(
-      loanToken: string,
-      asset: string,
-      amount: BigNumberish,
-      overrides?: CallOverrides
-    ): Promise<void>;
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1245,16 +1304,26 @@ export class SettlementLogic extends BaseContract {
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    /**
+     * Returns the order hashes and the cancelled flag.
+     */
     checkCanceledHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<([string, boolean] & { hash: string; canceled: boolean })[]>;
 
+    /**
+     * Returns the filled orders and the respective amounts.
+     */
     checkFilledAmountHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<([string, BigNumber] & { hash: string; amount: BigNumber })[]>;
 
+    /**
+     * User deposits a balance to the contract.
+     * @param to Receiver of the funds.
+     */
     deposit(to: string, overrides?: CallOverrides): Promise<void>;
 
     fillMarginOrder(
@@ -1404,31 +1473,57 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
+    /**
+     * Initially set to 200$ in mainnet.
+     * Set min margin order size.
+     * @param _minMarginOrderSize New minimum margin limit order size.
+     */
     setMinMarginOrderSize(
       _minMarginOrderSize: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Set minimum tx fee for margin order.
+     * @param _newGas New minimum txn gas price for margin limit orders.
+     */
     setMinMarginOrderTxFee(
       _newGas: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Initially set to 100$ in mainnet.
+     * Set min swap order size.
+     * @param _minSwapOrderSize New minimum spot limit order size.
+     */
     setMinSwapOrderSize(
       _minSwapOrderSize: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Set minimum tx fee for swap order.
+     * @param _newGas New minimum txn gas price for spot limit orders.
+     */
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Set price feeds contract.
+     * @param _priceFeeds New address of price feeds oracle.
+     */
     setPriceFeeds(
       _priceFeeds: string,
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Sets relayer fee.
+     * @param _relayerFeePercent Relayer fee percentage.
+     */
     setRelayerFee(
       _relayerFeePercent: BigNumberish,
       overrides?: CallOverrides
@@ -1444,6 +1539,10 @@ export class SettlementLogic extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    /**
+     * Withdraw user balance.
+     * @param amount Amount to be withdrawn.
+     */
     withdraw(amount: BigNumberish, overrides?: CallOverrides): Promise<void>;
   };
 
@@ -1850,14 +1949,10 @@ export class SettlementLogic extends BaseContract {
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<BigNumber>;
 
+    /**
+     * Returns list of all cancelled hashes.
+     */
     allCanceledHashes(overrides?: CallOverrides): Promise<BigNumber>;
-
-    approveTokenLoan(
-      loanToken: string,
-      asset: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string | Promise<string> }
-    ): Promise<BigNumber>;
 
     balanceOf(arg0: string, overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1903,16 +1998,26 @@ export class SettlementLogic extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    /**
+     * Returns the order hashes and the cancelled flag.
+     */
     checkCanceledHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    /**
+     * Returns the filled orders and the respective amounts.
+     */
     checkFilledAmountHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    /**
+     * User deposits a balance to the contract.
+     * @param to Receiver of the funds.
+     */
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -2055,31 +2160,57 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<BigNumber>;
 
+    /**
+     * Initially set to 200$ in mainnet.
+     * Set min margin order size.
+     * @param _minMarginOrderSize New minimum margin limit order size.
+     */
     setMinMarginOrderSize(
       _minMarginOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Set minimum tx fee for margin order.
+     * @param _newGas New minimum txn gas price for margin limit orders.
+     */
     setMinMarginOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Initially set to 100$ in mainnet.
+     * Set min swap order size.
+     * @param _minSwapOrderSize New minimum spot limit order size.
+     */
     setMinSwapOrderSize(
       _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Set minimum tx fee for swap order.
+     * @param _newGas New minimum txn gas price for spot limit orders.
+     */
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Set price feeds contract.
+     * @param _priceFeeds New address of price feeds oracle.
+     */
     setPriceFeeds(
       _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Sets relayer fee.
+     * @param _relayerFeePercent Relayer fee percentage.
+     */
     setRelayerFee(
       _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -2095,6 +2226,10 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
+    /**
+     * Withdraw user balance.
+     * @param amount Amount to be withdrawn.
+     */
     withdraw(
       amount: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -2112,14 +2247,10 @@ export class SettlementLogic extends BaseContract {
 
     WRBTC_ADDRESS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    /**
+     * Returns list of all cancelled hashes.
+     */
     allCanceledHashes(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    approveTokenLoan(
-      loanToken: string,
-      asset: string,
-      amount: BigNumberish,
-      overrides?: Overrides & { from?: string | Promise<string> }
-    ): Promise<PopulatedTransaction>;
 
     balanceOf(
       arg0: string,
@@ -2168,16 +2299,26 @@ export class SettlementLogic extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Returns the order hashes and the cancelled flag.
+     */
     checkCanceledHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Returns the filled orders and the respective amounts.
+     */
     checkFilledAmountHashes(
       hashes: BytesLike[],
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * User deposits a balance to the contract.
+     * @param to Receiver of the funds.
+     */
     deposit(
       to: string,
       overrides?: PayableOverrides & { from?: string | Promise<string> }
@@ -2326,31 +2467,57 @@ export class SettlementLogic extends BaseContract {
 
     relayerFeePercent(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    /**
+     * Initially set to 200$ in mainnet.
+     * Set min margin order size.
+     * @param _minMarginOrderSize New minimum margin limit order size.
+     */
     setMinMarginOrderSize(
       _minMarginOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Set minimum tx fee for margin order.
+     * @param _newGas New minimum txn gas price for margin limit orders.
+     */
     setMinMarginOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Initially set to 100$ in mainnet.
+     * Set min swap order size.
+     * @param _minSwapOrderSize New minimum spot limit order size.
+     */
     setMinSwapOrderSize(
       _minSwapOrderSize: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Set minimum tx fee for swap order.
+     * @param _newGas New minimum txn gas price for spot limit orders.
+     */
     setMinSwapOrderTxFee(
       _newGas: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Set price feeds contract.
+     * @param _priceFeeds New address of price feeds oracle.
+     */
     setPriceFeeds(
       _priceFeeds: string,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Sets relayer fee.
+     * @param _relayerFeePercent Relayer fee percentage.
+     */
     setRelayerFee(
       _relayerFeePercent: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
@@ -2366,6 +2533,10 @@ export class SettlementLogic extends BaseContract {
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
+    /**
+     * Withdraw user balance.
+     * @param amount Amount to be withdrawn.
+     */
     withdraw(
       amount: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }

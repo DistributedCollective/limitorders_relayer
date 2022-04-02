@@ -22,7 +22,7 @@ import type { TypedEventFilter, TypedEvent, TypedListener } from "./common";
 interface OrderBookSwapLogicInterface extends ethers.utils.Interface {
   functions: {
     "allHashes(uint256,uint256)": FunctionFragment;
-    "createOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32))": FunctionFragment;
+    "createOrder((address,address,address,uint256,uint256,address,uint256,uint256,uint8,bytes32,bytes32),uint256)": FunctionFragment;
     "getMaker(bytes32)": FunctionFragment;
     "getOrders(address,uint256,uint256)": FunctionFragment;
     "hashesOfFromToken(address,uint256,uint256)": FunctionFragment;
@@ -58,7 +58,8 @@ interface OrderBookSwapLogicInterface extends ethers.utils.Interface {
         v: BigNumberish;
         r: BytesLike;
         s: BytesLike;
-      }
+      },
+      BigNumberish
     ]
   ): string;
   encodeFunctionData(functionFragment: "getMaker", values: [BytesLike]): string;
@@ -157,7 +158,7 @@ interface OrderBookSwapLogicInterface extends ethers.utils.Interface {
   ): Result;
 
   events: {
-    "OrderCreated(bytes32,tuple)": EventFragment;
+    "OrderCreated(bytes32,tuple,uint256)": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
   };
 
@@ -192,7 +193,8 @@ export type OrderCreatedEvent = TypedEvent<
       v: number;
       r: string;
       s: string;
-    }
+    },
+    BigNumber
   ] & {
     hash: string;
     order: [
@@ -220,6 +222,7 @@ export type OrderCreatedEvent = TypedEvent<
       r: string;
       s: string;
     };
+    limitPrice: BigNumber;
   }
 >;
 
@@ -291,6 +294,7 @@ export class OrderBookSwapLogic extends BaseContract {
         r: BytesLike;
         s: BytesLike;
       },
+      limitPrice: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<ContractTransaction>;
 
@@ -475,6 +479,7 @@ export class OrderBookSwapLogic extends BaseContract {
       r: BytesLike;
       s: BytesLike;
     },
+    limitPrice: BigNumberish,
     overrides?: Overrides & { from?: string | Promise<string> }
   ): Promise<ContractTransaction>;
 
@@ -628,6 +633,7 @@ export class OrderBookSwapLogic extends BaseContract {
         r: BytesLike;
         s: BytesLike;
       },
+      limitPrice: BigNumberish,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -760,9 +766,10 @@ export class OrderBookSwapLogic extends BaseContract {
   };
 
   filters: {
-    "OrderCreated(bytes32,tuple)"(
+    "OrderCreated(bytes32,tuple,uint256)"(
       hash?: BytesLike | null,
-      order?: null
+      order?: null,
+      limitPrice?: null
     ): TypedEventFilter<
       [
         string,
@@ -790,7 +797,8 @@ export class OrderBookSwapLogic extends BaseContract {
           v: number;
           r: string;
           s: string;
-        }
+        },
+        BigNumber
       ],
       {
         hash: string;
@@ -819,12 +827,14 @@ export class OrderBookSwapLogic extends BaseContract {
           r: string;
           s: string;
         };
+        limitPrice: BigNumber;
       }
     >;
 
     OrderCreated(
       hash?: BytesLike | null,
-      order?: null
+      order?: null,
+      limitPrice?: null
     ): TypedEventFilter<
       [
         string,
@@ -852,7 +862,8 @@ export class OrderBookSwapLogic extends BaseContract {
           v: number;
           r: string;
           s: string;
-        }
+        },
+        BigNumber
       ],
       {
         hash: string;
@@ -881,6 +892,7 @@ export class OrderBookSwapLogic extends BaseContract {
           r: string;
           s: string;
         };
+        limitPrice: BigNumber;
       }
     >;
 
@@ -922,6 +934,7 @@ export class OrderBookSwapLogic extends BaseContract {
         r: BytesLike;
         s: BytesLike;
       },
+      limitPrice: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<BigNumber>;
 
@@ -1021,6 +1034,7 @@ export class OrderBookSwapLogic extends BaseContract {
         r: BytesLike;
         s: BytesLike;
       },
+      limitPrice: BigNumberish,
       overrides?: Overrides & { from?: string | Promise<string> }
     ): Promise<PopulatedTransaction>;
 
