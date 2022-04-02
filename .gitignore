@@ -2,3 +2,4 @@ src/secrets
 node_modules/
 dist
 db
+logs
