@@ -250,6 +250,7 @@ class MarginOrders {
     static async parseOrderDetail(order: MarginOrder, checkFee = false) {
         await this.checkLoanAdr(order, RSK.Mainnet.provider);
         const orderDetail: any = {
+            id: order.id,
             hash: order.hash,
             loanId: order.loanId,
             leverageAmount: Number(formatEther(order.leverageAmount)) + 1,

@@ -34,6 +34,7 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>Id</th>
                                 <th>Time</th>
                                 <th>Pair</th>
                                 <th>Order Type</th>
@@ -48,6 +49,7 @@
                         </thead>
                         <tbody>
                             <tr ng-repeat="order in ctrl.orders.spot.list" ng-class="{'bg-green': !order.isSell, 'bg-red': order.isSell}">
+                                <td>{{ order.id }}</td>
                                 <td>{{ order.created |date:'dd/MM/yyyy hh:mm' }}</td>
                                 <td>{{ order.pair }}</td>
                                 <td>{{ order.isSell ? 'Sell' : 'Buy' }}</td>
@@ -96,6 +98,7 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>Id</th>
                                 <th>Time</th>
                                 <th>Pair</th>
                                 <th>Order Type</th>
@@ -110,6 +113,7 @@
                         </thead>
                         <tbody>
                             <tr ng-repeat="order in ctrl.orders.margin.list" ng-class="{'bg-green': order.pos == 'Long', 'bg-red': order.pos == 'Short'}">
+                                <td>{{ order.id }}</td>
                                 <td>{{ order.createdTimestamp |date:'dd/MM/yyyy hh:mm' }}</td>
                                 <td>{{ order.pair }}</td>
                                 <td>{{ order.pos }}</td>

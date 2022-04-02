@@ -241,6 +241,7 @@ class Orders {
 
     static async parseOrderDetail(order: Order, checkFee = false) {
         const orderDetail: any = {
+            id: order.id,
             hash: order.hash,
             maker: order.maker,
             fromToken: order.fromToken,

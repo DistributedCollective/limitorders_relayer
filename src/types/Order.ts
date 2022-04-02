@@ -3,6 +3,7 @@ import { Trade } from "@sushiswap/sdk";
 
 export interface BaseOrder {
     hash: string;
+    id?: number;
     status?: string;
     relayer?: string;
     txHash?: string;

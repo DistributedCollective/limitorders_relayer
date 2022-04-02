@@ -25,12 +25,15 @@ export class Utils {
 
     static async convertTokenAmount(fromToken: string, toToken: string, amount: BigNumber): Promise<BigNumber> {
         try {
+            if (fromToken.toLowerCase() == toToken.toLowerCase()) return amount;
+
             const swapContract = new Contract(config.contracts.sovrynSwap, swapAbi, RSK.Mainnet.provider);
             const path = await swapContract.conversionPath(fromToken, toToken);
             const amountOut = await swapContract.rateByPath(path, amount.toString());
             return BigNumber.from(String(amountOut));
         } catch (error) {
             Log.e(error);
+            return BigNumber.from("0");
         }
     }
 

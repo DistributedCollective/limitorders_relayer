@@ -137,6 +137,7 @@ class DbCtrl {
         });
         return (list || []).map(item => {
             const json = JSON.parse(item.detail);
+            json.id = item.id;
             json.status = item.status;
             json.type = item.type;
             json.relayer = item.relayer;
