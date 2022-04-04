@@ -193,14 +193,19 @@ class Orders {
 
                     const actualAmountIn = amountIn.sub(estFee);
                     const amountOut = await Utils.convertTokenAmount(tokenIn.address, tokenOut.address, actualAmountIn);
-                    Log.d(
-                        'Orders.checkTradable: hash', order.hash,
-                        '\n\tamountIn', formatEther(amountIn),
-                        '\n\tamountOut', formatEther(amountOut),
-                        '\n\tamountOutMin', formatEther(amountOutMin),
-                        '\n\testFee', formatEther(estFee), tokenIn.name,
-                        '\n\tprice', Number(amountOut) / Number(actualAmountIn), tokenIn.name + '/' + tokenOut.name
-                    );
+                    const matchPercent = amountOut.mul(100).div(amountOutMin).toNumber();
+
+                    if (matchPercent > 80) {
+                        Log.d(
+                            'Orders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
+                            '\n\tamountIn', formatEther(amountIn),
+                            '\n\tamountOut', formatEther(amountOut),
+                            '\n\tamountOutMin', formatEther(amountOutMin),
+                            '\n\testFee', formatEther(estFee), tokenIn.name,
+                            '\n\tprice', Number(amountOut) / Number(actualAmountIn), tokenIn.name + '/' + tokenOut.name
+                        );
+                    }
+
                     if (amountOut.gte(amountOutMin) && (bestPair == null || amountOut.gt(bestAmountOut))) {
                         bestPair = pairs[i];
                         bestAmountOut = amountOut;

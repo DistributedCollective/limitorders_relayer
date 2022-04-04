@@ -236,14 +236,18 @@ class MarginOrders {
 
         const loanSymb = Utils.getTokenSymbol(order.loanAssetAdr);
         const collSymb = Utils.getTokenSymbol(order.collateralTokenAddress);
-        Log.d(
-            'MarginOrders.checkTradable: hash', order.hash,
-            '\n\t orderSize', formatEther(orderSize) + '$',
-            '\n\t totalDeposited', formatEther(totalDeposited), loanSymb,
-            '\n\t estFee', formatEther(estFee) + '$',
-            '\n\t curPrice', formatEther(curPrice), loanSymb + '/' + collSymb,
-            '\n\t minEntryPrice', formatEther(order.minEntryPrice), loanSymb + '/' + collSymb,
-        );
+
+        const matchPercent = curPrice.mul(100).div(order.minEntryPrice).toNumber();
+        if (matchPercent > 80) {
+            Log.d(
+                'MarginOrders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
+                '\n\t orderSize', formatEther(orderSize) + '$',
+                '\n\t totalDeposited', formatEther(totalDeposited), loanSymb,
+                '\n\t estFee', formatEther(estFee) + '$',
+                '\n\t curPrice', formatEther(curPrice), loanSymb + '/' + collSymb,
+                '\n\t minEntryPrice', formatEther(order.minEntryPrice), loanSymb + '/' + collSymb,
+            );
+        }
         return orderSize.gt(config.minOrderSize) && curPrice.gte(order.minEntryPrice);
     }
 
