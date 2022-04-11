@@ -11,24 +11,6 @@ class AppCtrl {
         this.totalProfit =0;
         this.last24HOrders = 0;
         this.last24HProfit = 0;
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        // this.orders = {
-        //     spot: {
-        //         list: [],
-        //         status: "",
-        //         page: 1,
-        //         limit: 10,
-        //         total: 0,
-        //     },
-        //     margin: {
-        //         list: [],
-        //         status: "",
-        //         page: 1,
-        //         limit: 10,
-        //         total: 0,
-        //     }
-        // };
 
         this.$scope = $scope;
         this.start();
@@ -97,38 +79,6 @@ class AppCtrl {
             p.$scope.$applyAsync();
         })
     }
-
-    viewOrder() {
-        const p = this;
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        const hash = prompt("Enter order hash:");
-        socket.emit("getOrderDetail", hash, false, (res) => {
-            console.log("response order detail", res);
-            if (res.error) alert(res.error);
-            else {
-                p.orderDetail = res;
-                p.orderDetail.hash = hash;
-                p.$scope.$applyAsync();
-            }
-        });
-    }
-
-    viewMarginOrder() {
-        const p = this;
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        const hash = prompt("Enter order hash:");
-        socket.emit("getOrderDetail", hash, true, (res) => {
-            console.log("response order detail", res);
-            if (res.error) alert(res.error);
-            else {
-                p.marginOrderDetail = res;
-                p.marginOrderDetail.hash = hash;
-                p.$scope.$applyAsync();
-            }
-        });
-    }
 }
 
 class OrderBookCtrl {
@@ -137,6 +87,8 @@ class OrderBookCtrl {
             spot: {
                 list: [],
                 status: "",
+                pair: "",
+                pairs: [],
                 page: 1,
                 limit: 100,
                 total: 0,
@@ -144,14 +96,22 @@ class OrderBookCtrl {
             margin: {
                 list: [],
                 status: "",
+                pair: "",
+                pairs: [],
                 page: 1,
                 limit: 100,
                 total: 0,
             }
         };
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
+        this.volumns = {
+            spot: null,
+            margin: null,
+        };
 
         this.$scope = $scope;
-        this.listOrders('spot');
+        this.changeTab('spot');
         this.getNetworkData();
     }
 
@@ -175,10 +135,11 @@ class OrderBookCtrl {
         const page = resetPage ? 0 : tableData.page;
         const offset = (page - 1) * tableData.limit;
         const filter = {
-            type: type == 'spot' ? 'limit' : type,
+            type: type,
             offset: offset,
             limit: tableData.limit,
             status: tableData.status,
+            pair: tableData.pair,
         };
         socket.emit('listOrders', filter, (result) => {
             console.log(result);
@@ -187,6 +148,25 @@ class OrderBookCtrl {
             tableData.page = Math.floor(result.offset / result.limit) + 1;
             p.$scope.$applyAsync();
         });
+
+        if (tableData.pair) {
+            this.getVolumn(type, tableData.pair);
+        } else {
+            this.volumns = { spot: null, margin: null };
+        }
+    }
+
+    listPairs(type) {
+        const p = this;
+        socket.emit('listPairs', type, (pairs) => {
+            p.orders[type].pairs = pairs || [];
+            p.$scope.$applyAsync();
+        });
+    }
+
+    changeTab(type) {
+        this.listOrders(type, true);
+        this.listPairs(type);
     }
 
     copy(text) {
@@ -219,6 +199,49 @@ class OrderBookCtrl {
 
     short(text) {
         return text.substr(0, 6) + '...' + text.substr(text.length - 4);
+    }
+
+    getPairName(pair) {
+        return pair.replace('WRBTC', 'rBTC');
+    }
+
+    viewOrder() {
+        const p = this;
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
+        const hash = prompt("Enter order hash:");
+        socket.emit("getOrderDetail", hash, false, (res) => {
+            console.log("response order detail", res);
+            if (res.error) alert(res.error);
+            else {
+                p.orderDetail = res;
+                p.orderDetail.hash = hash;
+                p.$scope.$applyAsync();
+            }
+        });
+    }
+
+    viewMarginOrder() {
+        const p = this;
+        this.orderDetail = null;
+        this.marginOrderDetail = null;
+        const hash = prompt("Enter order hash:");
+        socket.emit("getOrderDetail", hash, true, (res) => {
+            console.log("response order detail", res);
+            if (res.error) alert(res.error);
+            else {
+                p.marginOrderDetail = res;
+                p.marginOrderDetail.hash = hash;
+                p.$scope.$applyAsync();
+            }
+        });
+    }
+
+    getVolumn(type, pair) {
+        const p = this;
+        socket.emit('sumVol', type, pair, (sumVol) => {
+            p.volumns[type] = sumVol;
+        });
     }
 }
 

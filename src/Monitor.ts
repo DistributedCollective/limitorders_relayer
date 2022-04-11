@@ -6,9 +6,9 @@ import Db from "./Db";
 import RSK from "./RSK";
 import { Utils } from "./Utils";
 import Orders from "./Orders";
-import TokenEntry from "./types/TokenEntry";
-import OrderModel from "./models/OrderModel";
 import MarginOrders from "./MarginOrders";
+import OrderStatus from "./types/OrderStatus";
+import PriceFeeds from "./PriceFeeds";
 
 class Monitor {
     net: RSK;
@@ -53,16 +53,16 @@ class Monitor {
         }
 
         let rbtcBal = Number(accountWithInfo.rBtcBalance.balance) || 0;
-        let usdBal = 0;
+        let totalUsdBal = 0;
         for (const tokenBal of accountWithInfo.tokenBalances) {
             let bal = Number(tokenBal.balance) || 0;
             if (tokenBal.token.toLowerCase() == 'wrbtc') bal += rbtcBal;
             if (bal <= 0) continue;
-            const price = await Utils.convertUsdAmount(tokenBal.adr, BigNumber.from(parseEther(String(bal))));
-            usdBal += (Number(formatEther(price)) * bal) || 0;
+            const usdBal = await Utils.convertUsdAmount(tokenBal.adr, BigNumber.from(parseEther(bal.toFixed(10))));
+            totalUsdBal += Number(formatEther(usdBal)) || 0;
         }
 
-        accountWithInfo.usdBalance = usdBal.toFixed(2);
+        accountWithInfo.usdBalance = totalUsdBal.toFixed(2);
 
         return accountWithInfo;
     }
@@ -98,40 +98,36 @@ class Monitor {
         cb(order);
     }
 
-    getPair(adr1: string, adr2: string): TokenEntry[] {
-        const i1 = config.tokens.findIndex(t => t.address.toLowerCase() == adr1.toLowerCase());
-        const i2 = config.tokens.findIndex(t => t.address.toLowerCase() == adr2.toLowerCase());
-        if (i1 < 0 || i2 < 0) throw "Wrong token";
-
-        return i1 < i2 ? [config.tokens[i1], config.tokens[i2]]
-            : [config.tokens[i2], config.tokens[i1]];
+    async listAllPair(type = 'spot', cb) {
+        let pairs = await Db.listAllPairs(type == 'spot');
+        cb(pairs);
     }
 
-    async listOrders({ type = 'limit', status = '', offset = 0, limit = 10} = {}, cb) {
-        const _STATUSS = OrderModel.Statuss;
+    async listOrders({ type = 'spot', status = '', pair = '', offset = 0, limit = 10} = {}, cb) {
         const statusFilter: any = {};
         if (status == 'open') statusFilter.status = [ 
-            _STATUSS.open,
-            _STATUSS.matched,
-            _STATUSS.retrying,
-            _STATUSS.filling,
-            _STATUSS.failed,
-            _STATUSS.failed_smallOrder,
+            OrderStatus.open,
+            OrderStatus.matched,
+            OrderStatus.retrying,
+            OrderStatus.filling,
+            OrderStatus.failed,
+            OrderStatus.failed_smallOrder,
         ];
-        if (status == 'canceled') statusFilter.status = [ _STATUSS.canceled];
-        if (status == 'filled') statusFilter.status = [ _STATUSS.filled, _STATUSS.success];
+        if (status == 'canceled') statusFilter.status = [ OrderStatus.canceled];
+        if (status == 'filled') statusFilter.status = [ OrderStatus.filled, OrderStatus.success];
 
         const orders = await Db.findOrders(type, {
             offset,
             limit,
+            pair,
             latest: true,
             ...statusFilter
         });
-        const total = await Db.countOrders({ type, ...statusFilter });
+        const total = await Db.countOrders({ type, pair, ...statusFilter });
         const orderDetails = [];
         for (const order of orders) {
             let orderDetail;
-            if (order.type == 'limit') orderDetail = await Orders.parseOrderDetail(order, true);
+            if (order.type == 'spot') orderDetail = await Orders.parseOrderDetail(order, true);
             else orderDetail = await MarginOrders.parseOrderDetail(order);
             orderDetails.push(orderDetail);
         }
@@ -142,6 +138,60 @@ class Monitor {
             offset,
             limit
         });
+    }
+
+    async sumVolumn(type, pair, cb) {
+        const orders = await Db.findOrders(type, { pair, limit: -1 });
+        let vol: any = {
+            buy: 0,
+            sell: 0
+        };
+        if (!orders || orders.length == 0) return vol;
+
+        const [baseSymbol, quoteSymbol] = pair.split('/');
+
+        if (type == 'spot') {
+            orders.forEach(order => {
+                const pairTokens = Orders.getPair(order.fromToken, order.toToken);
+                if (order.fromToken.toLowerCase() == pairTokens[0].address.toLowerCase()) {
+                    vol.sell += Number(formatEther(order.amountIn));
+                } else {
+                    vol.buy += Number(formatEther(order.amountIn));
+                }
+            });
+
+            vol = {
+                buy: Number(vol.buy.toFixed(6)) + ' ' + quoteSymbol,
+                sell: Number(vol.sell.toFixed(6)) + ' ' + baseSymbol,
+            };
+
+        } else {
+            let volBuy = BigNumber.from(0);
+            let volSell = BigNumber.from(0);
+            const baseAdr = Utils.getTokenAddress(baseSymbol);
+            const quoteAdr = Utils.getTokenAddress(quoteSymbol);
+            const basePrice = PriceFeeds.getPrice(baseAdr, Utils.getTokenAddress('xusd'));
+            const quotePrice = PriceFeeds.getPrice(quoteAdr, Utils.getTokenAddress('xusd'));
+
+            for (const order of orders) {
+                if (order.loanAssetAdr.toLowerCase() == baseAdr.toLowerCase()) {
+                    const loanUsd = order.loanTokenSent.mul(parseEther(basePrice));
+                    const collUsd = order.collateralTokenSent.mul(parseEther(quotePrice));
+                    
+                    volSell = loanUsd.add(collUsd).add(volSell);
+                } else {
+                    const loanUsd = order.loanTokenSent.mul(parseEther(quotePrice));
+                    const collUsd = order.collateralTokenSent.mul(parseEther(basePrice));
+
+                    volBuy = loanUsd.add(collUsd).add(volBuy);
+                }
+            }
+
+            vol.buy = Number(formatEther(volBuy.div(ethers.constants.WeiPerEther))).toFixed(2) + ' USD';
+            vol.sell = Number(formatEther(volSell.div(ethers.constants.WeiPerEther))).toFixed(2) + ' USD';
+        }
+
+        cb(vol);
     }
 }
 

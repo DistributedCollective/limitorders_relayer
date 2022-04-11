@@ -9,10 +9,10 @@ import Monitor from "./Monitor";
 import MarginOrders from './MarginOrders';
 import config from './config';
 import Db from './Db';
-import OrderModel from "./models/OrderModel";
 import Order from "./types/Order";
 import MarginOrder from "./types/MarginOrder";
 import PriceFeeds from "./PriceFeeds";
+import OrderStatus from "./types/OrderStatus";
 
 
 const mainnet = RSK.Mainnet;
@@ -42,8 +42,10 @@ export const start = async (io: IO.Server) => {
         socket.on('getNetworkData', async (cb) => Monitor.getNetworkData(cb));
         socket.on('getTotals', async (cb) => Monitor.getTotals(cb));
         socket.on('getLast24HTotals', async (cb) => Monitor.getTotals(cb, true));
-        socket.on('getOrderDetail', async (hash, isMargin, cb) => Monitor.getOrderDetail(hash, isMargin, cb));
-        socket.on('listOrders', async ({type, status, offset, limit}, cb) => Monitor.listOrders({type, status, offset, limit}, cb));
+        socket.on('getOrderDetail', async (...args) => Monitor.getOrderDetail.call(Monitor, ...args));
+        socket.on('listOrders', async (...args) => Monitor.listOrders.call(Monitor, ...args));
+        socket.on('listPairs', async (...args) => Monitor.listAllPair.call(Monitor, ...args));
+        socket.on('sumVol', async (...args) => Monitor.sumVolumn.call(Monitor, ...args));
     });
 };
 
@@ -61,16 +63,11 @@ const processLimitOrderes = async () => {
         async hash => {
             Log.d("order created: " + hash);
             const order = await Orders.fetchOrder(hash, testnet.provider);
-            await Db.addOrder(order, { status: OrderModel.Statuss.open });
-            // orders.push(order);
+            await Db.addOrder(order, { status: OrderStatus.open });
         },
         hash => {
             Log.d("order cancelled: " + hash);
-            Db.updateOrdersStatus([hash], OrderModel.Statuss.canceled);
-            // const index = orders.findIndex(order => order.hash === hash);
-            // if (index >= 0) {
-            //     orders.splice(index, 1);
-            // }
+            Db.updateOrdersStatus([hash], OrderStatus.canceled, true);
         },
         mainnet.provider,
         testnet.provider
@@ -102,14 +99,14 @@ const processLimitOrderes = async () => {
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
-                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled);
+                await Db.updateOrdersStatus([hash], OrderStatus.filled, true);
             }
         }
     });
     setInterval(async () => {
         try {
             await Promise.all([
-                executor.checkFillBatchOrders(mainnet, 'limit'),
+                executor.checkFillBatchOrders(mainnet, 'spot'),
                 executor.checkFillBatchOrders(mainnet, 'margin'),
             ]);
         } catch (e) {
@@ -130,7 +127,7 @@ const processMarginOrders = async () => {
         async hash => {
             Log.d("margin order created: " + hash);
             const order = await MarginOrders.fetchOrder(hash, mainnet.provider, testnet.provider);
-            await Db.addMarginOrder(order, { status: OrderModel.Statuss.open });
+            await Db.addMarginOrder(order, { status: OrderStatus.open });
             orders.push(order);
         },
         hash => {
@@ -138,7 +135,7 @@ const processMarginOrders = async () => {
             const index = orders.findIndex(order => order.hash === hash);
             if (index >= 0) {
                 orders.splice(index, 1);
-                Db.updateOrdersStatus([hash], OrderModel.Statuss.canceled);
+                Db.updateOrdersStatus([hash], OrderStatus.canceled, false);
             }
         },
         mainnet.provider,
@@ -165,7 +162,7 @@ const processMarginOrders = async () => {
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
-                await Db.updateOrdersStatus([hash], OrderModel.Statuss.filled);
+                await Db.updateOrdersStatus([hash], OrderStatus.filled, false);
             }
         }
     });
@@ -173,7 +170,7 @@ const processMarginOrders = async () => {
     executor.watchFeeTranfered(async (hash, filler) => {
         const order = await Db.checkOrderHash(hash);
         if (order && !order.relayer) {
-            await Db.updateOrderFiller(hash, filler);
+            await Db.updateOrderFiller(hash, filler, order.type == 'spot');
         }
     });
 };

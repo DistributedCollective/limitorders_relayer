@@ -7,6 +7,8 @@ export interface BaseOrder {
     status?: string;
     relayer?: string;
     txHash?: string;
+    type?: string;
+    pair?: string;
 }
 
 interface Order extends BaseOrder {

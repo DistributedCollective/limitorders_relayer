@@ -4,14 +4,13 @@ import MarginOrder from "./types/MarginOrder";
 import config from "./config";
 import Log from "./Log";
 import { Utils } from "./Utils";
-import swapAbi from "./config/abi_sovrynSwap.json";
 import loanAbi from "./config/abi_loan.json";
 import Db from "./Db";
 import { formatEther, parseEther } from "ethers/lib/utils";
-import OrderModel from "./models/OrderModel";
 import RSK from "./RSK";
 import Orders from "./Orders";
 import PriceFeeds from "./PriceFeeds";
+import OrderStatus from "./types/OrderStatus";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -79,7 +78,7 @@ class MarginOrders {
             ).filter(order => !!order);
 
             for (const order of orders) {
-                await Db.addMarginOrder(order, { status: OrderModel.Statuss.open });
+                await Db.addMarginOrder(order, { status: OrderStatus.open });
             }
 
             return orders;
@@ -176,15 +175,20 @@ class MarginOrders {
     }
 
     static parseOrder(json: any): MarginOrder {
-        return {
-            ...json,
-            leverageAmount: BigNumber.from(json.leverageAmount),
-            loanTokenSent: BigNumber.from(json.loanTokenSent),
-            collateralTokenSent: BigNumber.from(json.collateralTokenSent),
-            minEntryPrice: BigNumber.from(json.minEntryPrice),
-            deadline: BigNumber.from(json.deadline),
-            createdTimestamp: BigNumber.from(json.createdTimestamp),
-        };
+        try {
+            return {
+                ...json,
+                leverageAmount: BigNumber.from(json.leverageAmount),
+                loanTokenSent: BigNumber.from(json.loanTokenSent),
+                collateralTokenSent: BigNumber.from(json.collateralTokenSent),
+                minEntryPrice: BigNumber.from(json.minEntryPrice),
+                deadline: BigNumber.from(json.deadline),
+                createdTimestamp: BigNumber.from(json.createdTimestamp),
+            };
+        } catch (error) {
+            console.log(json)
+            throw error;
+        }
     }
 
     static validOrderParams(order: MarginOrder) {
@@ -217,7 +221,7 @@ class MarginOrders {
         if (orderSize.lt(estFee)) {
             Log.e("Margin order size's too small for relayer fee, order size:", formatEther(orderSize) + '$,',
                 "est fee:", formatEther(estFee) + '$');
-            await Db.addMarginOrder(order, { status: OrderModel.Statuss.failed_smallOrder })
+            await Db.addMarginOrder(order, { status: OrderStatus.failed_smallOrder })
             return false;
         }
 
@@ -286,7 +290,6 @@ class MarginOrders {
         }
 
         if (checkFee) {
-            const totalDeposited = await this.getTotalDeposited(order, RSK.Mainnet.provider);
             orderDetail.currentPrice = await PriceFeeds.getPrice(order.loanAssetAdr, order.collateralTokenAddress);
             if (orderDetail.pos == 'Long') {
                 orderDetail.currentPrice = String(1 / Number(orderDetail.currentPrice));
@@ -312,8 +315,8 @@ class MarginOrders {
                     const filler = event && event[0] && event[0].args && event[0].args.recipient;
 
                     if (filler) {
-                        await Db.addMarginOrder(order, { status: OrderModel.Statuss.filled });
-                        await Db.updateOrderFiller(order.hash, filler);
+                        await Db.addMarginOrder(order, { status: OrderStatus.filled });
+                        await Db.updateOrderFiller(order.hash, filler, false);
                         console.log("Check margin order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
                     }
                     resolve(null);

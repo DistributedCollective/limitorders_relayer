@@ -6,7 +6,7 @@ import {
 import _ from 'lodash';
 import swapAbi from "./config/abi_sovrynSwap.json";
 import erc20Abi from "./config/abi_erc20.json";
-import { BigNumber, constants, Contract, ContractReceipt, ContractTransaction, ethers, Signer } from "ethers";
+import { BigNumber, Contract, ContractReceipt, ethers, PopulatedTransaction } from "ethers";
 import Order, { BaseOrder } from "./types/Order";
 import Log from "./Log";
 import { SettlementLogic__factory } from "./contracts";
@@ -18,7 +18,7 @@ import MarginOrders from "./MarginOrders";
 import { formatEther } from "ethers/lib/utils";
 import RSK from "./RSK";
 import Orders from "./Orders";
-import OrderModel from "./models/OrderModel";
+import OrderStatus from "./types/OrderStatus";
 
 export type OnOrderFilled = (
     hash: string,
@@ -58,7 +58,7 @@ const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, ord
                 result.push(order);
                 validAllowance.allowance = validAllowance.allowance.sub(order.amountIn);
             } else {
-                Db.updateOrdersStatus([order.hash], 'failed_allowance_not_enough');
+                Db.updateOrdersStatus([order.hash], 'failed_allowance_not_enough', true);
                 Log.d(`${order.hash} Not enough allowance`);
             }
         });
@@ -130,8 +130,8 @@ class Executor {
     async match(tokens: Token[], pairs: Pair[], timeout: number) {
         const executables: Order[] = [];
         const now = Date.now();
-        const openOrders: Order[] = await Db.findOrders('limit', {
-            status: OrderModel.Statuss.open,
+        const openOrders: Order[] = await Db.findOrders('spot', {
+            status: OrderStatus.open,
             latest: true,
             batchId: null
         });
@@ -141,11 +141,11 @@ class Executor {
             const orderInDb = await Db.checkOrderHash(order.hash);
 
             // skip checking order if it's been filled in another checking round
-            if (orderInDb.status != OrderModel.Statuss.open || this.checkFillBatchOrders[order.hash]) {
+            if (orderInDb.status != OrderStatus.open || this.checkingHashes[order.hash]) {
                 continue;
             }
 
-            this.checkFillBatchOrders[order.hash] = true;
+            this.checkingHashes[order.hash] = true;
 
             const fromToken = Utils.findToken(tokens, order.fromToken);
             const toToken = Utils.findToken(tokens, order.toToken);
@@ -163,7 +163,7 @@ class Executor {
                 const orderSize = await Utils.convertUsdAmount(order.fromToken, order.amountIn);
                 if (tradable && orderSize.gt(config.minOrderSize)) {
                     executables.push(order);
-                    await Db.updateOrdersStatus([order.hash], OrderModel.Statuss.matched);
+                    await Db.updateOrdersStatus([order.hash], OrderStatus.matched, true);
                     const aux = order.trade
                         ? " at " +
                         order.trade?.executionPrice.toFixed(8) +
@@ -177,7 +177,7 @@ class Executor {
                 }
             }
 
-            delete this.checkFillBatchOrders[order.hash];
+            delete this.checkingHashes[order.hash];
             if (Date.now() - now > timeout) break;
         }
 
@@ -186,7 +186,7 @@ class Executor {
 
     async matchMarginOrders() {
         const openOrders: MarginOrder[] = await Db.findOrders('margin', {
-            status: OrderModel.Statuss.open,
+            status: OrderStatus.open,
             latest: true,
             batchId: null
         });
@@ -195,34 +195,34 @@ class Executor {
 
         for (const order of openOrders) {
             const orderInDb = await Db.checkOrderHash(order.hash);
-            if (orderInDb.status != OrderModel.Statuss.open || this.checkFillBatchOrders[order.hash]) {
+            if (orderInDb.status != OrderStatus.open || this.checkingHashes[order.hash]) {
                 continue;
             }
             
-            this.checkFillBatchOrders[order.hash] = true;
+            this.checkingHashes[order.hash] = true;
             const tradable = await MarginOrders.checkTradable(this.provider, order);
             if (tradable) {
                 executables.push(order);
-                await Db.updateOrdersStatus([order.hash], OrderModel.Statuss.matched);
+                await Db.updateOrdersStatus([order.hash], OrderStatus.matched, false);
                 Log.d(`Margin order matched: ` + order.hash);
             }
 
-            delete this.checkFillBatchOrders[order.hash];
+            delete this.checkingHashes[order.hash];
         }
 
         return executables;
     }
 
-    async checkFillBatchOrders(net: RSK, type = 'limit', retryBatchId: string = null) {
+    async checkFillBatchOrders(net: RSK, type = 'spot', retryBatchId: string = null) {
         try {
             Log.d("Start checking for filling batch orders, type", type);
-            const isLimitOrder = type == 'limit';
+            const isSpotOrder = type == 'spot';
             let orders: BaseOrder[] = await Db.findOrders(type, {
                 batchId: retryBatchId,
-                status: !!retryBatchId ? OrderModel.Statuss.retrying : OrderModel.Statuss.matched
+                status: !!retryBatchId ? OrderStatus.retrying : OrderStatus.matched
             });
 
-            if (isLimitOrder) {
+            if (isSpotOrder) {
                 orders = await checkOrdersAllowance(this.provider, orders as Order[]);
             }
 
@@ -230,50 +230,49 @@ class Executor {
             Log.d(`processing ${orders.length} ${type} orders on ${batches.length} batches`);
 
             for (const batchOrders of batches) {
-                const signer = await net.getWallet();
-                if (signer == null) {
-                    console.log(net.pendingHashes);
-                    Log.d("No wallet available");
-                    continue;
-                }
 
-                const batchId = retryBatchId || Utils.getUuid();
-                await Db.updateOrdersStatus(batchOrders.map(order => order.hash), OrderModel.Statuss.filling, batchId);
-                Log.d('batch:', batchId, batchOrders.map(order => order.hash))
-
-                const signerAdr = await signer.getAddress();
-                let fill: Promise<ContractTransaction>;
-
-                if (isLimitOrder) {
-                    fill = this.fillOrders(net, batchOrders as Order[], signer, batchId);
-                } else {
-                    fill = this.fillMarginOrders(net, batchOrders as MarginOrder[], signer, batchId);
-                }
-
-                fill.then(async (tx) => {
-                    Log.d('tx hash', tx.hash, 'nonce', tx.nonce);
-                    for (const order of batchOrders) {
-                        await Db.updateFilledOrder(signerAdr, order.hash, tx.hash, OrderModel.Statuss.filling, "");
+                let signerAdr;
+                try {
+                    const batchId = retryBatchId || Utils.getUuid();
+                    await Db.updateOrdersStatus(batchOrders.map(order => order.hash), OrderStatus.filling, batchId, isSpotOrder);
+                    Log.d('batch:', batchId, batchOrders.map(order => order.hash))
+    
+                    let txData: PopulatedTransaction;
+    
+                    if (isSpotOrder) {
+                        txData = await this.fillOrders(batchOrders as Order[]);
+                    } else {
+                        txData = await this.fillMarginOrders(batchOrders as MarginOrder[]);
                     }
-                    const receipt = await tx.wait();
-                    net.removeHash(batchId);
-                    for (const order of batchOrders) {
-                        const profit = await calculateProfit(this.provider, order, receipt, batchOrders.length, tx.gasPrice);
-                        await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, OrderModel.Statuss.success, profit);
-                        Log.d(`profit of ${order.hash}: ${profit}$`);
-                    }
-                }).catch(async (e) => {
-                    Log.e(e);
-                    Log.e('tx failed', e.transactionHash);
+    
+                    const { tx, signer } = await net.sendTx(txData);
 
-                    net.removeHash(batchId);
+                    if (tx) {
+                        signerAdr = signer.address;
+                        Log.d('tx hash', tx.hash, 'nonce', tx.nonce, batchId);
+                        for (const order of batchOrders) {
+                            await Db.updateFilledOrder(signerAdr, order.hash, tx.hash, OrderStatus.filling, "", isSpotOrder);
+                        }
+                        const receipt = await tx.wait();
+                        for (const order of batchOrders) {
+                            const profit = await calculateProfit(this.provider, order, receipt, batchOrders.length, tx.gasPrice);
+                            await Db.updateFilledOrder(signerAdr, order.hash, receipt.transactionHash, OrderStatus.success, profit, isSpotOrder);
+                            Log.d(`profit of ${order.hash}: ${profit}$`);
+                        }
+                    }
+                    
+                } catch (err) {
+                    Log.e(err);
+                    Log.e('tx failed', err.transactionHash);
+
                     if (batchOrders.length === 1) {
-                        await Db.updateFilledOrder(signerAdr, batchOrders[0].hash, '', OrderModel.Statuss.failed, '');
+                        await Db.updateFilledOrder(signerAdr, batchOrders[0].hash, '', OrderStatus.failed, '', isSpotOrder);
                     } else {
                         await Utils.wasteTime(10);
-                        await this.retryFillFailedOrders(batchOrders.map(order => order), net, isLimitOrder);
+                        await this.retryFillFailedOrders(batchOrders.map(order => order), net, isSpotOrder);
                     }
-                });
+                }
+
                 await Utils.wasteTime(5);
             }
 
@@ -283,18 +282,18 @@ class Executor {
         }
     }
 
-    async retryFillFailedOrders(orders: any[], net: RSK, isLimitOrder = false) {
+    async retryFillFailedOrders(orders: any[], net: RSK, isSpotOrder = false) {
         const mid = Math.round(orders.length / 2)
         const firstBatch = orders.slice(0, mid), lastBatch = orders.slice(mid);
         const batchId1 = Utils.getUuid(), batchId2 = Utils.getUuid();
-        await Db.updateOrdersStatus(firstBatch.map(o => o.hash), OrderModel.Statuss.retrying, batchId1);
-        await Db.updateOrdersStatus(lastBatch.map(o => o.hash), OrderModel.Statuss.retrying, batchId2);
+        await Db.updateOrdersStatus(firstBatch.map(o => o.hash), OrderStatus.retrying, batchId1, isSpotOrder);
+        await Db.updateOrdersStatus(lastBatch.map(o => o.hash), OrderStatus.retrying, batchId2, isSpotOrder);
 
-        if (isLimitOrder) {
+        if (isSpotOrder) {
             await new Promise(async (resolve) => {
-                this.checkFillBatchOrders(net, 'limit', batchId1)
+                this.checkFillBatchOrders(net, 'spot', batchId1)
                 await Utils.wasteTime(3);
-                this.checkFillBatchOrders(net, 'limit', batchId2);
+                this.checkFillBatchOrders(net, 'spot', batchId2);
                 resolve(true);
             });
         } else {
@@ -307,39 +306,32 @@ class Executor {
         }
     }
 
-    async fillOrders(net: RSK, orders: Order[], signer: ethers.Signer, batchId: string) {
-        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
+    async fillOrders(orders: Order[]) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         const args = (
             await Promise.all(
-                orders.map(order => Orders.argsForOrder(order, signer))
+                orders.map(order => Orders.argsForOrder(order, this.provider))
             )
         ).filter(arg => arg !== null);
 
         if (args.length > 0) {
             Log.d("filling orders...");
-            await Db.updateOrdersStatus(args.map(arg => arg.order.hash), OrderModel.Statuss.filling, Utils.getUuid());
 
             args.forEach(arg => {
                 const symbol = Utils.getTokenSymbol(arg.order.fromToken);
                 Log.d("  " + arg.order.hash + " (amountIn: " + formatEther(arg.order.amountIn) + " " + symbol + ")");
             });
 
-            const signerAdr = await signer.getAddress();
             const gasLimit = await contract.estimateGas.fillOrders(args);
-            const gasPrice = await Utils.getGasPrice(signer);
-            const nonce = await net.addPendingHash(signerAdr, batchId);
-            const tx = await contract.fillOrders(args, {
-                gasLimit: gasLimit.mul(140).div(100),
-                gasPrice: gasPrice,
-                nonce
+            const txData = await contract.populateTransaction.fillOrders(args, {
+                gasLimit: gasLimit
             });
-            Log.d("  tx hash: ", tx.hash);
-            return tx;
+            return txData;
         }
     }
 
-    async fillMarginOrders(net: RSK, orders: MarginOrder[], signer: Signer, batchId: string) {
-        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
+    async fillMarginOrders(orders: MarginOrder[]) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         const args = orders.map(order => ({ order }));
 
         if (args.length > 0) {
@@ -348,16 +340,12 @@ class Executor {
                 Log.d("  " + arg.order.hash);
             });
 
-            const signerAdr = await signer.getAddress();
             const gasLimit = await contract.estimateGas.fillMarginOrders(args);
-            const gasPrice = await Utils.getGasPrice(signer);
-            const nonce = await net.addPendingHash(signerAdr, batchId);
-            const tx = await contract.fillMarginOrders(args, {
-                gasLimit: gasLimit.mul(140).div(100),
-                gasPrice: gasPrice,
-                nonce
+            const txData = await contract.populateTransaction.fillMarginOrders(args, {
+                gasLimit
             });
-            return tx;
+            
+            return txData;
         }
     }
 }

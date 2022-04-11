@@ -1,13 +1,14 @@
-import { constants, ethers } from "ethers";
+import { constants, ethers, PopulatedTransaction } from "ethers";
 import AsyncLock from 'async-lock';
 import config, { RelayerAccount } from "./config";
 import testnet from "./config/testnet";
 import Log from "./Log";
+import { Utils } from "./Utils";
 
-const locker = new AsyncLock();
-const lock = async (key: string): Promise<() => void> => {
+const lock = new AsyncLock();
+const acquireLock = async (key: string): Promise<() => void> => {
     return new Promise(resolve => {
-        locker.acquire(key, (release) => {
+        lock.acquire(key, (release) => {
             resolve(release);
         });
     });
@@ -16,6 +17,8 @@ const lock = async (key: string): Promise<() => void> => {
 class RSK {
     provider: ethers.providers.JsonRpcProvider;
     accounts: RelayerAccount[];
+    pendingTxs = {};
+    lastNonces = {};
     pendingHashes = {};
 
     static Mainnet = new RSK(config.rpcNode, config.accounts);
@@ -26,41 +29,125 @@ class RSK {
         this.accounts = accounts;
     }
 
-    async getWallet(): Promise<ethers.Wallet> {
-        const release = await lock('getWallet');
+    async getWallet(timeout = 60000): Promise<ethers.Wallet> {
+        const stopAt = Date.now() + timeout;
+        const release = await acquireLock('getWallet');
+        try {
+            while (Date.now() < stopAt) {
+                for (const acc of this.accounts) {
+                    this.pendingTxs[acc.address] = this.pendingTxs[acc.address] || 0;
+        
+                    const wallet = new ethers.Wallet(acc.pKey, this.provider);
+                    const bal = await wallet.getBalance();
+                    acc.address = wallet.address;
+                    if (this.pendingTxs[wallet.address] < 4 && bal.gt(constants.Zero)) {
+                        this.pendingTxs[wallet.address] ++;
+                        release();
+                        return wallet;
+                    }
+                }
+                Utils.wasteTime(0.5);
+            }
+        } catch (e) {
+            Log.e(e);
+        } finally {
+            release();
+        }
+    }
+
+    decreasePending(walletAddress) {
         for (const acc of this.accounts) {
-            const nrPending = this.getNrPending(acc.address);
-
-            if (nrPending >= 4) continue;
-
-            const wallet = new ethers.Wallet(acc.pKey, this.provider);
-            const bal = await wallet.getBalance();
-            // console.log('wallet.getBalance()', Number(bal), 'pending', nrPending)
-            if (bal.gt(constants.Zero)) {
-                release();
-                return wallet;
+            if (acc.address.toLowerCase() === walletAddress.toLowerCase()) {
+                this.pendingTxs[acc.address]--;
+                return true;
             }
         }
-        release();
+
+        console.error("could not decrease the pending tx count for non-existing wallet address: " + walletAddress);
+        return false;
     }
 
-    async addPendingHash(adr: string, hash: string) {
-        const release = await lock('addPendingHash:' + adr);
-        const nrPending = this.getNrPending(adr);
-        const nonce = await this.provider.getTransactionCount(adr, 'latest');
-        // Log.d('Get nonce addPendingHash, latest:', nonce, 'tx pending', nrPending)
-        this.pendingHashes[hash] = adr.toLowerCase();
-        release();
-        return nonce + nrPending;
+    async sendTx(txData: PopulatedTransaction) {
+        const release = await acquireLock('sendTx');
+        let nonce: number;
+        let relayer: ethers.Wallet;
+
+        try {
+            relayer = await this.getWallet(5 * 60 * 1000);
+            if (!relayer) {
+                console.log("No wallet has enough fund or available");
+                release();
+                return;
+            }
+
+            nonce = this.lastNonces[relayer.address] = await this.getNonce(relayer);
+            const gasPrice = await Utils.getGasPrice(relayer);
+            const tx = await relayer.sendTransaction({
+                ...txData,
+                gasPrice: gasPrice,
+                nonce
+            });
+
+            if (tx) {
+                console.log('sending tx %s, nonce %s', tx.hash, nonce);
+                new Promise(async (resolve) => {
+                    try {
+                        await this.provider.waitForTransaction(tx.hash, 1);
+                        console.log('tx %s, nonce %s confirmed', tx.hash, nonce);
+                        resolve(null);
+                    } catch (e) {
+                        console.log('tx failed %s, nonce %s', tx.hash, nonce);
+                        console.error(e);
+                    } finally {
+                        this.decreasePending(relayer.address);
+                    }
+                });
+            }
+            
+            return {
+                tx,
+                signer: relayer
+            }
+        } catch (err) {
+            if (nonce != null && relayer) {
+                this.decreasePending(relayer.address);
+            }
+            Log.e(err);
+        } finally {
+            release();
+        }
     }
 
-    removeHash(hash: string) {
-        delete this.pendingHashes[hash];
-    }
+    /**
+     * The Rsk node does not return a valid response occasionally for a short period of time
+     * Thats why the request is repeated 5 times and in case it still fails the last nonce +1 is returned
+     */
+    async getNonce(wallet: ethers.Wallet) {
+        const lastNonce: number = this.lastNonces[wallet.address];
+        for (let cnt = 0; cnt < 5; cnt++) {
+            try {
+                const nonce = await wallet.getTransactionCount('pending');
+                if (lastNonce != null && nonce !== lastNonce + 1) {
+                    console.log("nonce %d not expected %d", nonce, lastNonce + 1);
+                    if (cnt === 4) {
+                        console.log("giving up and returning it anyway")
+                        return nonce;
+                    }
 
-    getNrPending(adr: string) {
-        return Object.keys(this.pendingHashes)
-            .filter(h => this.pendingHashes[h] == adr.toLowerCase()).length;
+                    await Utils.wasteTime(0.5 ** 2 ** cnt);
+                }
+                else {
+                    return nonce;
+                }
+            } catch (e) {
+                console.error("Error retrieving transaction count");
+                console.error(e);
+            }
+        }
+
+        const finalNonce = lastNonce + 1 || 0;
+        console.error("Returning guessed nonce %d", finalNonce);
+        return finalNonce;
     }
 }
 

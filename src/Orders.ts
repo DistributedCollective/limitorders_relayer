@@ -8,10 +8,10 @@ import Log from "./Log";
 import { formatEther, parseEther } from "ethers/lib/utils";
 import swapAbi from "./config/abi_sovrynSwap.json";
 import Db from "./Db";
-import OrderModel from "./models/OrderModel";
 import RSK from "./RSK";
 import TokenEntry from "./types/TokenEntry";
 import PriceFeeds from "./PriceFeeds";
+import OrderStatus from "./types/OrderStatus";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -81,7 +81,7 @@ class Orders {
             ).filter(order => !!order);
 
             for (const order of orders) {
-                await Db.addOrder(order, { status: OrderModel.Statuss.open });
+                await Db.addOrder(order, { status: OrderStatus.open });
             }
 
             return orders;
@@ -187,7 +187,7 @@ class Orders {
                     if (amountIn.lt(estFee)) {
                         Log.e("Order size's too small for relayer fee, hash", order.hash, ", amountIn:", formatEther(amountIn), tokenIn.name, 
                             "est fee:", formatEther(estFee));
-                        await Db.addOrder(order, { status: OrderModel.Statuss.failed_smallOrder });
+                        await Db.addOrder(order, { status: OrderStatus.failed_smallOrder });
                         continue;
                     }
 
@@ -219,9 +219,9 @@ class Orders {
         return bestPair != null;
     };
 
-    static async argsForOrder (order: Order, signer: ethers.Signer) {
-        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signer);
-        const swapContract = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, signer);
+    static async argsForOrder (order: Order, signerOrProvider: ethers.Signer | ethers.providers.BaseProvider) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signerOrProvider);
+        const swapContract = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, signerOrProvider);
         const fromToken = order.fromToken;
         const toToken = order.toToken;
         const path = await swapContract.conversionPath(fromToken, toToken);
@@ -239,7 +239,7 @@ class Orders {
         } catch (e) {
             Log.w("  " + order.hash + " will revert");
             Log.e(e);
-            await Db.updateFilledOrder(await signer.getAddress(), order.hash, '', 'failed', '');
+            await Db.updateOrdersStatus([order.hash], 'failed', true);
             return null;
         }
     }
@@ -257,16 +257,15 @@ class Orders {
             status: order.status,
             relayer: order.relayer,
             txHash: order.txHash,
+            pair: order.pair,
         };
         
         const pairTokens = this.getPair(order.fromToken, order.toToken);
-        orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;
 
         if (orderDetail.fromToken.toLowerCase() == pairTokens[0].address.toLowerCase()) {
             orderDetail.fromSymbol = pairTokens[0].name;
             orderDetail.toSymbol = pairTokens[1].name;
             orderDetail.isSell = true;
-            
         } else {
             orderDetail.fromSymbol = pairTokens[1].name;
             orderDetail.toSymbol = pairTokens[0].name;
@@ -316,8 +315,8 @@ class Orders {
                     const event = await settlement.queryFilter(filterFilled);
                     const filler = event && event[0] && event[0].args && event[0].args.recipient;
                     if (filler) {
-                        await Db.addOrder(order, { status: OrderModel.Statuss.filled });
-                        await Db.updateOrderFiller(order.hash, filler);
+                        await Db.addOrder(order, { status: OrderStatus.filled });
+                        await Db.updateOrderFiller(order.hash, filler, true);
                         console.log("Check spot order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
                     }
                     resolve(null);

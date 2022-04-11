@@ -3,17 +3,21 @@ import * as path from "path";
 import * as SQLite3 from 'sqlite3';
 import Log from "./Log";
 
-import OrderModel from "./models/OrderModel";
+import SpotTrade from "./models/SpotTrade";
+import MarginTrade from "./models/MarginTrade";
 import MarginOrder from "./types/MarginOrder";
 import Order from "./types/Order";
 import Orders from "./Orders";
 import MarginOrders from "./MarginOrders";
 import { Utils } from "./Utils";
+import config from "./config";
+
 const sqlite3 = SQLite3.verbose();
 
 class DbCtrl {
     db: SQLite3.Database;
-    orderModel: OrderModel;
+    spotModel: SpotTrade;
+    marginModel: MarginTrade;
 
     async initDb(dbName: string) {
         return new Promise(resolve => {
@@ -36,36 +40,49 @@ class DbCtrl {
      */
     async initRepos() {
         try {
-            this.orderModel = new OrderModel(this.db);
+            this.spotModel = new SpotTrade(this.db);
+            this.marginModel = new MarginTrade(this.db);
 
-            await this.orderModel.createTable();
+            await this.spotModel.createTable();
+            await this.marginModel.createTable();
         } catch (e) {
             Log.e(e);
         }
     }
 
+    getModel(isSpot) {
+        return isSpot ? this.spotModel : this.marginModel;
+    }
+
     async checkOrderHash(hash: string) {
-        const model: any = await this.orderModel.findOne({ hash: hash });
+        let isSpot = true;
+        let model: any = await this.spotModel.findOne({ hash: hash });
+        if (!model) {
+            model = await this.marginModel.findOne({ hash: hash });
+            isSpot = false;
+        }
         if (!model) return null;
 
         const json = JSON.parse(model.detail);
         json.status = model.status;
-        json.type = model.type;
+        json.type = isSpot ? 'spot' : 'margin';
 
-        return model.type == 'limit' ? 
+        return isSpot ? 
             Orders.parseOrder(json) :
             MarginOrders.parseOrder(json);
     }
 
     async addOrder(order: Order, { status = 'matched'} = {}) {
         try {
-            const exists = await this.orderModel.findOne({ hash: order.hash });
+            const exists = await this.spotModel.findOne({ hash: order.hash });
             if (exists) return null;
 
-            return await this.orderModel.insert({
+            const pairTokens = Orders.getPair(order.fromToken, order.toToken);
+            const pair = pairTokens[0].name + '/' + pairTokens[1].name;
+            return await this.spotModel.insert({
                 hash: order.hash,
+                pair: pair,
                 status: status || 'matched',
-                type: 'limit',
                 owner: order.maker,
                 orderTime: Utils.formatDate(Number(order.created)),
                 detail: JSON.stringify({ ...order, trade: undefined })
@@ -77,13 +94,16 @@ class DbCtrl {
 
     async addMarginOrder(order: MarginOrder, { status = 'matched' } = {}) {
         try {
-            const exists = await this.orderModel.findOne({ hash: order.hash });
+            const exists = await this.marginModel.findOne({ hash: order.hash });
             if (exists) return null;
 
-            return await this.orderModel.insert({
+            const pairTokens = Orders.getPair(order.loanAssetAdr, order.collateralTokenAddress);
+            const pair = pairTokens[0].name + '/' + pairTokens[1].name;
+
+            return await this.marginModel.insert({
                 hash: order.hash,
+                pair: pair,
                 status: status || 'matched',
-                type: 'margin',
                 owner: order.trader,
                 orderTime: Utils.formatDate(Number(order.createdTimestamp)),
                 detail: JSON.stringify(order)
@@ -93,44 +113,46 @@ class DbCtrl {
         }
     }
 
-    async updateFilledOrder(relayer: string, hash: string, txHash: string, status: string, profit: string) {
+    async updateFilledOrder(relayer: string, hash: string, txHash: string, status: string, profit: string, isSpot = true) {
         try {
-            const old: any = await this.orderModel.findOne({ hash });
-            return await this.orderModel.update({ hash }, {
+            const old: any = await this.getModel(isSpot).findOne({ hash });
+            return await this.getModel(isSpot).update({ hash }, {
                 relayer,
                 txHash: txHash || old.txHash,
                 profit,
                 status,
+                filledAdded: Utils.formatDate(Date.now() / 1000)
             });
         } catch (e) {
             Log.e(e);
         }
     }
 
-    async updateOrdersStatus(hashList: string[], status: string, batchId = null) {
+    async updateOrdersStatus(hashList: string[], status: string, batchId = null, isSpot = true) {
         const updateObj: any = { status };
         if (batchId != null) {
             updateObj.batchId = batchId;
         }
-        return await this.orderModel.update({ hash: hashList }, updateObj);
+        return await this.getModel(isSpot).update({ hash: hashList }, updateObj);
     }
 
-    async updateOrderFiller(hash: string, filler: string) {
-        return await this.orderModel.update({ hash: hash }, {
-            relayer: filler
+    async updateOrderFiller(hash: string, filler: string, isSpot = true) {
+        return await this.getModel(isSpot).update({ hash: hash }, {
+            relayer: filler,
+            filledAdded: Utils.formatDate(Date.now() / 1000)
         });
     }
 
-    async findOrders(type, { status, batchId, limit, offset, latest } = {} as any) {
-        const cond: any = {
-            type,
-        };
+    async findOrders(type, { status, batchId, limit, offset, latest, pair } = {} as any) {
+        const cond: any = {};
+        const isSpot = type === 'spot';
         let orderBy;
         if (status) cond.status = status;
         if (batchId) cond.batchId = batchId;
+        if (pair) cond.pair = pair;
         if (latest) orderBy = { orderTime: -1 };
 
-        const list: any = await this.orderModel.find(cond, {
+        const list: any = await this.getModel(isSpot).find(cond, {
             offset,
             limit: limit || 100,
             orderBy
@@ -139,29 +161,37 @@ class DbCtrl {
             const json = JSON.parse(item.detail);
             json.id = item.id;
             json.status = item.status;
-            json.type = item.type;
+            json.type = type;
             json.relayer = item.relayer;
             json.txHash = item.txHash;
-            return item.type == 'limit' ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);
+            json.pair = item.pair;
+            return type == 'spot' ? Orders.parseOrder(json) : MarginOrders.parseOrder(json);
         });
     }
 
-    async countOrders({ type, status } = {} as any) {
+    async countOrders({ type, status, pair } = {} as any) {
         const cond: any = {};
-        if (type) cond.type = type;
         if (status) cond.status = status;
+        if (pair) cond.pair = pair;
 
-        return await this.orderModel.count(cond);
+        return await this.getModel(type == 'spot').count(cond);
     }
 
     async getTotals(last24H) {
         try {
+            const adrQuery = 'LOWER(relayer) IN (' + config.accounts.map(acc => `'${acc.address.toLowerCase()}'`).join(',') + ')';
             let profit = 0;
             const sqlQuery = last24H ? // select either all actions or only the last 24h ones
-                `SELECT * FROM orders WHERE dateAdded BETWEEN DATETIME('now', '-1 day') AND DATETIME('now') AND status IN ('success', 'failed')` :
-                `SELECT * FROM orders WHERE status IN ('success', 'failed')`;
-            const allRows: any = await this.orderModel.all(sqlQuery);
-            (allRows || []).forEach((row) => {
+                `SELECT * FROM spot_trades WHERE filledAdded BETWEEN DATETIME('now', '-1 day') 
+                    AND DATETIME('now') 
+                    AND status IN ('filled', 'success', 'failed')
+                    AND ${adrQuery}` :
+                `SELECT * FROM spot_trades WHERE status IN ('filled', 'success', 'failed') AND ${adrQuery}`;
+            const spotRows: any = await this.spotModel.all(sqlQuery);
+            const marginRows: any = await this.marginModel.all(sqlQuery.replace('spot_trades', 'margin_trades'));
+            const allRows = (spotRows || []).concat(marginRows || [])
+
+            allRows.forEach((row) => {
                 if (row.profit) {
                     profit += Number(row.profit);
                 }
@@ -170,6 +200,13 @@ class DbCtrl {
         } catch (e) {
             Log.e(e);
         }
+    }
+
+    async listAllPairs(isSpot = true) {
+        const tbModel = this.getModel(isSpot);
+        const sqlQuery = `SELECT pair from ${tbModel.table} GROUP BY pair`;
+        const pairs: any = await tbModel.all(sqlQuery);
+        return (pairs || []).map(p => p.pair);
     }
 }
 
