@@ -1,4 +1,7 @@
 /* tslint:disable:no-console */
+/**
+ * Logger functions
+ */
 
 class Log {
     static d(...value: any) {

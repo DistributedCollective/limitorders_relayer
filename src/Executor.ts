@@ -31,6 +31,9 @@ export type OnFeeTransferred = (
     recipient: string
 ) => Promise<void> | void;
 
+/**
+ * Check if spot orders have enough token allowance on the settlement contract
+ */
 const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, orders: Order[]) => {
     const result = [];
     const makers = _.uniqBy(orders, o => o.maker + ':' + o.fromToken)
@@ -67,7 +70,7 @@ const checkOrdersAllowance = async (provider: ethers.providers.BaseProvider, ord
 };
 
 /**
- * Calculate swap|margin order fee and return profit in xusd
+ * Calculate spot, margin order fee and return profit in xusd
  */
 const calculateProfit = async (provider: ethers.providers.BaseProvider, order: BaseOrder, tx: ContractReceipt, orderInBatch: number, gasPrice: BigNumber) => {
     const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
@@ -107,27 +110,42 @@ class Executor {
         this.provider = provider;
     }
 
+    /**
+     * Observe filled spot orders
+     */
     watch(onOrderFilled: OnOrderFilled) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         settlement.on("OrderFilled", onOrderFilled);
     }
 
+    /**
+     * Observe filled margin orders
+     */
     watchMargin(onOrderFilled: OnOrderFilled) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         settlement.on("MarginOrderFilled", onOrderFilled);
     }
 
+    /**
+     * Observe FeeTransferred event, containing relayer filled orders
+     */
     watchFeeTranfered(onFeeTransferred: OnFeeTransferred) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         settlement.on("FeeTransferred", onFeeTransferred);
     }
 
+    /**
+     * Get filled amount of order hash
+     */
     async filledAmountIn(hash: string) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         return await settlement.filledAmountInOfHash(hash);
     }
 
-    async match(tokens: Token[], pairs: Pair[], timeout: number) {
+    /**
+     * Check all open spot orders in db and mark it as 'matched' when order could be filled
+     */
+    async matchSpotOrders(tokens: Token[], pairs: Pair[], timeout: number) {
         const executables: Order[] = [];
         const now = Date.now();
         const openOrders: Order[] = await Db.findOrders('spot', {
@@ -140,7 +158,7 @@ class Executor {
         for (const order of openOrders) {
             const orderInDb = await Db.checkOrderHash(order.hash);
 
-            // skip checking order if it's been filled in another checking round
+            // skip checking orders if it's been filled in another round
             if (orderInDb.status != OrderStatus.open || this.checkingHashes[order.hash]) {
                 continue;
             }
@@ -150,7 +168,6 @@ class Executor {
             const fromToken = Utils.findToken(tokens, order.fromToken);
             const toToken = Utils.findToken(tokens, order.toToken);
             const filledAmountIn = await this.filledAmountIn(order.hash);
-            let matched = false;
 
             if (fromToken && toToken && order.deadline.toNumber() * 1000 >= now && filledAmountIn.lt(order.amountIn)) {
                 const tradable = await Orders.checkTradable(
@@ -173,7 +190,6 @@ class Executor {
                         order.trade.route.path[0].symbol
                         : "";
                     Log.d("Spot order matched: " + order.hash + aux);
-                    matched = true;
                 }
             }
 
@@ -184,6 +200,9 @@ class Executor {
         return executables;
     }
 
+    /**
+     * Check all open margin orders in db and mark them as 'matched' when order could be filled
+     */
     async matchMarginOrders() {
         const openOrders: MarginOrder[] = await Db.findOrders('margin', {
             status: OrderStatus.open,
@@ -213,6 +232,14 @@ class Executor {
         return executables;
     }
 
+    /**
+     * Load all matched orders in db and split orders into batches of max `config.maxOrdersInBatch`
+     * It will try to execute fillOrders tx with batch of orders (list size N)
+     * If tx failed, will retry 2 fillOrders txs:
+     *  - the first tx will fill the first half of old orders, element 0 -> N/2
+     *  - the second tx will fill the remaining half of old orders, element N/2 + 1 -> N - 1
+     * It will continue to send tx if there are more than 2 failed orders in a batch
+     */
     async checkFillBatchOrders(net: RSK, type = 'spot', retryBatchId: string = null) {
         try {
             Log.d("Start checking for filling batch orders, type", type);
@@ -282,6 +309,9 @@ class Executor {
         }
     }
 
+    /**
+     * Split orders into 2 batches and try to execute fillOrders again
+     */
     async retryFillFailedOrders(orders: any[], net: RSK, isSpotOrder = false) {
         const mid = Math.round(orders.length / 2)
         const firstBatch = orders.slice(0, mid), lastBatch = orders.slice(mid);
@@ -306,6 +336,9 @@ class Executor {
         }
     }
 
+    /**
+     * Get transaction data of settlememt.fillOrders method
+     */
     async fillOrders(orders: Order[]) {
         const contract = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         const args = (
@@ -322,14 +355,16 @@ class Executor {
                 Log.d("  " + arg.order.hash + " (amountIn: " + formatEther(arg.order.amountIn) + " " + symbol + ")");
             });
 
-            const gasLimit = await contract.estimateGas.fillOrders(args);
             const txData = await contract.populateTransaction.fillOrders(args, {
-                gasLimit: gasLimit
+                gasLimit: "1000000"
             });
             return txData;
         }
     }
 
+    /**
+     * Get transaction data of settlememt.fillMarginOrders method
+     */
     async fillMarginOrders(orders: MarginOrder[]) {
         const contract = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
         const args = orders.map(order => ({ order }));
@@ -340,9 +375,8 @@ class Executor {
                 Log.d("  " + arg.order.hash);
             });
 
-            const gasLimit = await contract.estimateGas.fillMarginOrders(args);
             const txData = await contract.populateTransaction.fillMarginOrders(args, {
-                gasLimit
+                gasLimit: "2000000"
             });
             
             return txData;

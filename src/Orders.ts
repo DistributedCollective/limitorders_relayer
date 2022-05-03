@@ -1,3 +1,8 @@
+/**
+ * Spot Order controller
+ * Provide all helper functions for spot order
+ */
+
 import { ethers, BigNumber } from "ethers";
 import { OrderBookSwapLogic__factory, SettlementLogic, SettlementLogic__factory } from "./contracts";
 import Order from "./types/Order";
@@ -24,6 +29,9 @@ const equalsCurrency = (currency1: Currency, currency2: Currency) => {
     return currency1.name === currency2.name;
 }
 
+/**
+ * Load relayerFeePercent from Settlement contract
+ */
 const getRelayerFeePercent = async (settlement: SettlementLogic) => {
     if (!_relayerFeePercent) {
         _relayerFeePercent = await settlement.relayerFeePercent();
@@ -31,6 +39,9 @@ const getRelayerFeePercent = async (settlement: SettlementLogic) => {
     return _relayerFeePercent;
 }
 
+/**
+ * Load minSwapOrderTxFee from Settlement contract
+ */
 const getMinSwapOrderTxFee = async (settlement: SettlementLogic) => {
     if (!_minSwapOrderTxFee) {
         _minSwapOrderTxFee = await settlement.minSwapOrderTxFee();
@@ -39,6 +50,9 @@ const getMinSwapOrderTxFee = async (settlement: SettlementLogic) => {
 }
 
 class Orders {
+    /**
+     * Load all canceled hashes of sport orders
+     */
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
         const fromBlock = (await provider.getBlockNumber()) - BLOCKS_PER_DAY;
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
@@ -46,6 +60,9 @@ class Orders {
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
     }
 
+    /**
+     * Load all spot orders hash from OrderBook contract
+     */
     private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {
         const orderBook = OrderBookSwapLogic__factory.connect(config.contracts.orderBook, kovanProvider);
         const length = (await orderBook.numberOfAllHashes()).toNumber();
@@ -56,6 +73,9 @@ class Orders {
             .filter(hash => hash !== ethers.constants.HashZero);
     }
 
+    /**
+     * Load detail of all spot orders, not include canceled, filled, expired orders
+     */
     static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
         try {
             const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
@@ -72,7 +92,6 @@ class Orders {
 
                             const order = await this.fetchOrder(hash, kovanProvider);
                             if (order.deadline.toNumber() < now) return null;
-                            const filledAmountIn = await settlement.filledAmountInOfHash(hash);
                             if (await this.checkFilledOrder(order, provider)) return null;
                             if (!this.validOrderParams(order)) return null;
                             return order;
@@ -91,6 +110,9 @@ class Orders {
         }
     }
 
+    /**
+     * Load detail of order hash
+     */
     static async fetchOrder(hash: string, kovanProvider: ethers.providers.BaseProvider) {
         const orderBook = OrderBookSwapLogic__factory.connect(config.contracts.orderBook, kovanProvider);
         const {
@@ -134,6 +156,10 @@ class Orders {
         settlement.on("OrderCanceled", onCancelOrder);
     }
 
+    /**
+    * Parse spot order from JSON object
+    * This will be used when load order detail from db
+    */
     static parseOrder(orderJSON): Order {
         return {
             ...orderJSON,
@@ -144,6 +170,10 @@ class Orders {
         };
     }
 
+    /**
+     * Check margin order valid
+     * order.fromToken, order.toToken need to be in config.tokens list
+     */
     static validOrderParams(order: Order) {
         const fromToken = order.fromToken.toLowerCase();
         const toToken = order.toToken.toLowerCase();
@@ -152,17 +182,17 @@ class Orders {
         return validFromToken != null && validToToken != null;
     }
 
+    /**
+     * Calculate fee for relayer
+     */
     static async estimateOrderFee(provider: ethers.providers.BaseProvider, tokenIn: Token, amountIn: BigNumber): Promise<BigNumber> {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
-        // const swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
         const relayerFeePercent = await getRelayerFeePercent(settlement);
         let txFee = await getMinSwapOrderTxFee(settlement);
         let orderFee = amountIn.mul(relayerFeePercent).div(parseEther('100')); //div 10^20
         const wrbtcAdr = Utils.getTokenAddress('wrbtc').toLowerCase();
 
         if (tokenIn.address.toLowerCase() != wrbtcAdr) {
-            // const path = await swap.conversionPath(wrbtcAdr, tokenIn.address);
-            // txFee = await swap.rateByPath(path, txFee);
             const rbtcPrice = PriceFeeds.getPrice(wrbtcAdr, tokenIn.address);
             txFee = BigNumber.from(txFee).mul(parseEther(rbtcPrice)).div(ethers.constants.WeiPerEther);
         }
@@ -171,6 +201,10 @@ class Orders {
         return orderFee;
     }
 
+    /**
+     * Check if a spot order could be trade or not.
+     * Order could be trade when current amount out (subtracted relayer fee) >= order.amountOutMin
+     */
     static async checkTradable(provider: ethers.providers.BaseProvider, pairs: Pair[], tokenIn: Token, tokenOut: Token, order: Order)
     : Promise<boolean> 
     {
@@ -219,6 +253,9 @@ class Orders {
         return bestPair != null;
     };
 
+    /**
+     * Get arguments of a spot order for calling settlement.fillOrder methods
+     */
     static async argsForOrder (order: Order, signerOrProvider: ethers.Signer | ethers.providers.BaseProvider) {
         const contract = SettlementLogic__factory.connect(config.contracts.settlement, signerOrProvider);
         const swapContract = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, signerOrProvider);
@@ -244,6 +281,9 @@ class Orders {
         }
     }
 
+    /**
+     * Load order detail for orderbook showing on client
+     */
     static async parseOrderDetail(order: Order, checkFee = false) {
         const orderDetail: any = {
             id: order.id,
@@ -294,6 +334,9 @@ class Orders {
         return orderDetail;
     }
 
+    /**
+     * Find valid pair for 2 token addresses
+     */
     static getPair(adr1: string, adr2: string): TokenEntry[] {
         const i1 = config.tokens.findIndex(t => t.address.toLowerCase() == adr1.toLowerCase());
         const i2 = config.tokens.findIndex(t => t.address.toLowerCase() == adr2.toLowerCase());
@@ -304,6 +347,9 @@ class Orders {
     }
 
 
+    /**
+     * Check if spot order whether filled or not
+     */
     static async checkFilledOrder(order: Order, provider: ethers.providers.BaseProvider) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const filledAmountIn = await settlement.filledAmountInOfHash(order.hash);

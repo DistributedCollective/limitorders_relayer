@@ -15,55 +15,9 @@
 </head>
 
 <body ng-controller="orderBookCtrl as ctrl">
-    <div class="container">
+    <div>
         <div style="margin-top: 20px;">
             <h4>Order book</h4>
-
-            <div>
-                <p>
-                    <button class="btn btn-default" ng-click="ctrl.viewOrder()">
-                        View order detail
-                    </button>
-            
-                    <button class="btn btn-default" ng-click="ctrl.viewMarginOrder()">
-                        View margin order detail
-                    </button>
-                </p>
-                <p ng-if="ctrl.orderDetail != null">
-                    Hash: {{ctrl.orderDetail.hash}}<br />
-                    Maker: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.maker}}"
-                        target="_blank">{{ctrl.orderDetail.maker}}</a><br />
-                    Pair: <span>{{ctrl.orderDetail.isSell ? 'Sell' : 'Buy'}} {{ctrl.orderDetail.pair}}</span> <br />
-                    Amount in: {{ctrl.orderDetail.amountIn}}<br />
-                    Amount out: {{ctrl.orderDetail.amountOutMin}}<br />
-                    Limit Price: {{ctrl.orderDetail.limitPrice}} {{ctrl.orderDetail.pair}}<br />
-                    Current Price: {{ctrl.orderDetail.currentPrice}}<br />
-                    Est fee: {{ctrl.orderDetail.estFee}}<br />
-                    Recipient: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.orderDetail.recipient}}"
-                        target="_blank">{{ctrl.orderDetail.maker}}</a><br />
-                    Deadline: <span ng-bind="'{{ctrl.orderDetail.deadline}}'|date:'short'"></span><br />
-                    Created at: <span ng-bind="'{{ctrl.orderDetail.created}}'|date:'short'"></span><br />
-                    Cancelled: {{ctrl.orderDetail.cancelled}}<br />
-                    FilledAmount: {{ctrl.orderDetail.filledAmount}}
-                </p>
-            
-                <p ng-if="ctrl.marginOrderDetail != null">
-                    Hash: {{ctrl.marginOrderDetail.hash}}<br />
-                    Trader: <a ng-href="{{ctrl.blockExplorer}}address/{{ctrl.marginOrderDetail.trader}}"
-                        target="_blank">{{ctrl.marginOrderDetail.trader}}</a><br />
-                    LoanId: {{ctrl.marginOrderDetail.loanId}}<br />
-                    Leverage: {{ctrl.marginOrderDetail.leverageAmount}}<br />
-                    Direction: <span>{{ctrl.marginOrderDetail.pos}} {{ctrl.marginOrderDetail.pair}}</span> <br />
-                    Loan Token Sent: {{ctrl.marginOrderDetail.loanTokenSent}}<br />
-                    Collateral Token Sent: {{ctrl.marginOrderDetail.collateralTokenSent}}<br />
-                    Limit Price: {{ctrl.marginOrderDetail.limitPrice}} {{ctrl.marginOrderDetail.pair}}<br />
-                    Current Price: {{ctrl.marginOrderDetail.currentPrice}}<br />
-                    Deadline: <span ng-bind="'{{ctrl.marginOrderDetail.deadline}}'|date:'short'"></span><br />
-                    Created at: <span ng-bind="'{{ctrl.marginOrderDetail.createdTimestamp}}'|date:'short'"></span><br />
-                    Cancelled: {{ctrl.marginOrderDetail.cancelled}}<br />
-                    FilledAmount: {{ctrl.marginOrderDetail.filledAmount}}
-                </p>
-            </div>
 
             <uib-tabset active="active">
                 <uib-tab index="0" heading="Spot orders" select="ctrl.listOrders('spot', true)">
@@ -87,9 +41,15 @@
                         </div>
                     </div>
                     <p><strong>Total rows: {{ctrl.orders.spot.total}}</strong></p>
-                    <p ng-if="ctrl.volumns.spot">
-                        Volumn buy ({{ctrl.getPairName(ctrl.orders.spot.pair)}}): {{ctrl.volumns.spot.buy}} <br/>
-                        Volumn sell ({{ctrl.getPairName(ctrl.orders.spot.pair)}}): {{ctrl.volumns.spot.sell}}
+
+                    <p ng-if="ctrl.totalVolumes.spot">
+                        Total Volume buy: {{ctrl.totalVolumes.spot.buy|number}} USD <br/>
+                        Total Volume sell: {{ctrl.totalVolumes.spot.sell|number}} USD
+                    </p>
+                    
+                    <p ng-if="ctrl.volumes.spot">
+                        Volume buy ({{ctrl.getPairName(ctrl.orders.spot.pair)}}): {{ctrl.volumes.spot.buy|number}} USD <br/>
+                        Volume sell ({{ctrl.getPairName(ctrl.orders.spot.pair)}}): {{ctrl.volumes.spot.sell|number}} USD
                     </p>
                     <table class="table table-hover">
                         <thead>
@@ -103,6 +63,7 @@
                                 <th>Limit price</th>
                                 <th>Status</th>
                                 <th>Hash</th>
+                                <th>Trader</th>
                                 <th>Filler</th>
                                 <th>Fill tx</th>
                             </tr>
@@ -122,6 +83,11 @@
                                         uib-tooltip="Copied" tooltip-trigger="'focus'"
                                     >
                                         {{ctrl.short(order.hash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.maker != null" href="{{ctrl.blockExplorer}}address/{{order.maker}}" target="_blank">
+                                        {{ctrl.short(order.maker)}}
                                     </a>
                                 </td>
                                 <td>
@@ -164,9 +130,15 @@
                         </div>
                     </div>
                     <p><strong>Total rows: {{ctrl.orders.margin.total}}</strong></p>
-                    <p ng-if="ctrl.volumns.margin">
-                        Volumn buy ({{ctrl.getPairName(ctrl.orders.margin.pair)}}): {{ctrl.volumns.margin.buy}} <br />
-                        Volumn sell ({{ctrl.getPairName(ctrl.orders.margin.pair)}}): {{ctrl.volumns.margin.sell}}
+
+                    <p ng-if="ctrl.totalVolumes.margin">
+                        Total Volume buy: {{ctrl.totalVolumes.margin.buy|number}} USD<br />
+                        Total Volume sell: {{ctrl.totalVolumes.margin.sell|number}} USD
+                    </p>
+
+                    <p ng-if="ctrl.volumes.margin">
+                        Volume buy ({{ctrl.getPairName(ctrl.orders.margin.pair)}}): {{ctrl.volumes.margin.buy|number}} USD <br />
+                        Volume sell ({{ctrl.getPairName(ctrl.orders.margin.pair)}}): {{ctrl.volumes.margin.sell|number}} USD
                     </p>
                     <table class="table table-hover">
                         <thead>
@@ -180,6 +152,8 @@
                                 <th>Limit price</th>
                                 <th>Status</th>
                                 <th>Hash</th>
+                                <th>LoanId</th>
+                                <th>Trader</th>
                                 <th>Filler</th>
                                 <th>Fill tx</th>
                             </tr>
@@ -202,6 +176,14 @@
                                         uib-tooltip="Copied" tooltip-trigger="'focus'"
                                     >
                                         {{ctrl.short(order.hash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    {{ctrl.short(order.loanId)}}
+                                </td>
+                                <td>
+                                    <a ng-if="order.trader != null" href="{{ctrl.blockExplorer}}address/{{order.trader}}" target="_blank">
+                                        {{ctrl.short(order.trader)}}
                                     </a>
                                 </td>
                                 <td>

@@ -1,3 +1,7 @@
+/**
+ * Pairs controller will load all available pairs from list of tokens on config
+ */
+
 import { Pair, Token, TokenAmount } from "@sushiswap/sdk";
 import { Contract, ethers } from "ethers";
 import TokenEntry, { toToken } from "./types/TokenEntry";

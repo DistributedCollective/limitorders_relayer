@@ -103,9 +103,11 @@ class OrderBookCtrl {
                 total: 0,
             }
         };
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        this.volumns = {
+        this.volumes = {
+            spot: null,
+            margin: null,
+        };
+        this.totalVolumes = {
             spot: null,
             margin: null,
         };
@@ -150,9 +152,9 @@ class OrderBookCtrl {
         });
 
         if (tableData.pair) {
-            this.getVolumn(type, tableData.pair);
+            this.getVolume(type, tableData.pair);
         } else {
-            this.volumns = { spot: null, margin: null };
+            this.volumes = { spot: null, margin: null };
         }
     }
 
@@ -167,6 +169,7 @@ class OrderBookCtrl {
     changeTab(type) {
         this.listOrders(type, true);
         this.listPairs(type);
+        this.getTotalVolumes(type);
     }
 
     copy(text) {
@@ -198,49 +201,26 @@ class OrderBookCtrl {
     }
 
     short(text) {
-        return text.substr(0, 6) + '...' + text.substr(text.length - 4);
+        return text.substr(0, 4) + '...' + text.substr(text.length - 4);
     }
 
     getPairName(pair) {
         return pair.replace('WRBTC', 'rBTC');
     }
 
-    viewOrder() {
+    getVolume(type, pair) {
         const p = this;
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        const hash = prompt("Enter order hash:");
-        socket.emit("getOrderDetail", hash, false, (res) => {
-            console.log("response order detail", res);
-            if (res.error) alert(res.error);
-            else {
-                p.orderDetail = res;
-                p.orderDetail.hash = hash;
-                p.$scope.$applyAsync();
-            }
+        socket.emit('sumVolPair', type, pair, (sumVol) => {
+            p.volumes[type] = sumVol;
+            p.$scope.$applyAsync();
         });
     }
 
-    viewMarginOrder() {
+    getTotalVolumes(type) {
         const p = this;
-        this.orderDetail = null;
-        this.marginOrderDetail = null;
-        const hash = prompt("Enter order hash:");
-        socket.emit("getOrderDetail", hash, true, (res) => {
-            console.log("response order detail", res);
-            if (res.error) alert(res.error);
-            else {
-                p.marginOrderDetail = res;
-                p.marginOrderDetail.hash = hash;
-                p.$scope.$applyAsync();
-            }
-        });
-    }
-
-    getVolumn(type, pair) {
-        const p = this;
-        socket.emit('sumVol', type, pair, (sumVol) => {
-            p.volumns[type] = sumVol;
+        socket.emit('totalVolumes', type, (sumVol) => {
+            p.totalVolumes[type] = sumVol;
+            p.$scope.$applyAsync();
         });
     }
 }

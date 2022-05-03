@@ -1,3 +1,9 @@
+/**
+ * Main controller
+ * Start fetching all spot, margin orders, matching orders, filled orders
+ * Also provides the api to monitor the order book
+ */
+
 import RSK from "./RSK";
 import Pairs from "./Pairs";
 import Log from "./Log";
@@ -24,12 +30,15 @@ if (!config.mainnet) {
 
 // tslint:disable-next-line:max-func-body-length
 
+/**
+ * main entry function which init the DB, PriceFeeds, Monitor controllers
+ */
 export const start = async (io: IO.Server) => {
     await Db.initDb(config.db);
     PriceFeeds.init(mainnet.provider);
 
     Promise.all([
-        processLimitOrderes(),
+        processSpotOrderes(),
         processMarginOrders(),
     ]).catch(e => {
         Log.e(e)
@@ -45,11 +54,18 @@ export const start = async (io: IO.Server) => {
         socket.on('getOrderDetail', async (...args) => Monitor.getOrderDetail.call(Monitor, ...args));
         socket.on('listOrders', async (...args) => Monitor.listOrders.call(Monitor, ...args));
         socket.on('listPairs', async (...args) => Monitor.listAllPair.call(Monitor, ...args));
-        socket.on('sumVol', async (...args) => Monitor.sumVolumn.call(Monitor, ...args));
+        socket.on('sumVolPair', async (...args) => Monitor.sumVolPair.call(Monitor, ...args));
+        socket.on('totalVolumes', async (...args) => Monitor.totalVolumes.call(Monitor, ...args));
     });
 };
 
-const processLimitOrderes = async () => {
+/**
+ * Load all spot orders, watch spot orders created
+ * Start checking matched spot orders on every block
+ * This function will start an interval every 15 seconds for loading 
+ * all matched orders on db included spot, margin orders and start filling them.
+ */
+const processSpotOrderes = async () => {
     Log.d("fetching pairs...");
     let { tokens, pairs } = await updateTokensAndPairs(mainnet.provider);
 
@@ -86,7 +102,7 @@ const processLimitOrderes = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                await executor.match(tokens, pairs, 200000);
+                await executor.matchSpotOrders(tokens, pairs, 200000);
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
@@ -103,6 +119,8 @@ const processLimitOrderes = async () => {
             }
         }
     });
+
+    // interval every 15 seconds for checking all fillable orders
     setInterval(async () => {
         try {
             await Promise.all([
@@ -116,6 +134,10 @@ const processLimitOrderes = async () => {
     }, 15000);
 };
 
+/**
+ * Load all spot orders, watch margin orders created
+ * Start checking matched margin orders on every block
+ */
 const processMarginOrders = async () => {
     Log.d("fetching margin orders...");
     const orders = await MarginOrders.fetch(mainnet.provider, testnet.provider);
@@ -175,6 +197,9 @@ const processMarginOrders = async () => {
     });
 };
 
+/**
+ * Load all available pairs and update all local prices
+ */
 const updateTokensAndPairs = async (provider: ethers.providers.BaseProvider) => {
     const { tokens, pairs } = await Pairs.fetch(provider);
     Log.d("found " + tokens.length + " tokens");

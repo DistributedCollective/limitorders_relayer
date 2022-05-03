@@ -1,3 +1,10 @@
+/**
+ * RSK Wallet controller
+ * This controller will provide helper functions for sending tx 
+ * and make sure only 4 pending txs at same time,
+ * it will choose a free wallet, calculate nonce then send tx
+ */
+
 import { constants, ethers, PopulatedTransaction } from "ethers";
 import AsyncLock from 'async-lock';
 import config, { RelayerAccount } from "./config";
@@ -29,6 +36,9 @@ class RSK {
         this.accounts = accounts;
     }
 
+    /**
+     * Get a free wallet for sending tx
+     */
     async getWallet(timeout = 60000): Promise<ethers.Wallet> {
         const stopAt = Date.now() + timeout;
         const release = await acquireLock('getWallet');
@@ -55,6 +65,9 @@ class RSK {
         }
     }
 
+    /**
+     * Remove a pending tx from list
+     */
     decreasePending(walletAddress) {
         for (const acc of this.accounts) {
             if (acc.address.toLowerCase() === walletAddress.toLowerCase()) {
@@ -67,6 +80,11 @@ class RSK {
         return false;
     }
 
+    /**
+     * Send a populated transaction data to RSK.
+     * It will wait and choose a free wallet in 5 minutes timeout
+     * Do nothing if after 5 minutes all wallets are still busy
+     */
     async sendTx(txData: PopulatedTransaction) {
         const release = await acquireLock('sendTx');
         let nonce: number;

@@ -1,3 +1,8 @@
+/**
+ * PriceFeeds controller
+ * This controller will load price of all pairs then store price in local map for getting price quickly
+ */
+
 import priceFeedsAbi from "./config/abi_pricefeed.json";
 import swapAbi from "./config/abi_sovrynSwap.json";
 import config from "./config";
@@ -17,6 +22,9 @@ class PriceFeeds {
         this.swap = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, provider);
     }
 
+    /**
+     * Load price of all pairs from AMM then store locally
+     */
     async updatePairs(pairs: Pair[]) {
         this.pairs = pairs;
         await Promise.all(pairs.map(async (pair) => {
@@ -39,9 +47,14 @@ class PriceFeeds {
         }));
     }
 
+    /**
+     * Get sell price fromToken -> toToken in local mapping prices
+     */
     getPrice(fromToken: string, toToken: string): string {
         fromToken = fromToken.toLowerCase();
         toToken = toToken.toLowerCase();
+        if (fromToken == toToken) return "1";
+
         const pair = this.pairs.find(p => {
             const token0 = p.token0.address.toLowerCase();
             const token1 = p.token1.address.toLowerCase();
@@ -50,7 +63,7 @@ class PriceFeeds {
         });
         if (!pair) {
             Log.d(`Pair not found, could not get price for tokens [${fromToken}, ${toToken}]`);
-            this.pairs.forEach(p => console.log(p.token0.symbol, p.token1.symbol, p.token0.address, p.token1.address))
+            // this.pairs.forEach(p => console.log(p.token0.symbol, p.token1.symbol, p.token0.address, p.token1.address))
             return "1";
         }
 

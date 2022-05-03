@@ -1,3 +1,8 @@
+/**
+ * Margin Order controller
+ * Provide all helper functions for margin orders
+ */
+
 import { BigNumber, constants, Contract, ethers } from "ethers";
 import { OrderBookMarginLogic__factory, SettlementLogic, SettlementLogic__factory } from "./contracts";
 import MarginOrder from "./types/MarginOrder";
@@ -19,6 +24,9 @@ const LIMIT = 20;
 const BLOCKS_PER_DAY = 20000;
 let _relayerFeePercent, _minMarginOrderTxFee;
 
+/**
+ * Load relayerFeePercent from Settlement contract
+ */
 const getRelayerFeePercent = async (settlement: SettlementLogic) => {
     if (!_relayerFeePercent) {
         _relayerFeePercent = await settlement.relayerFeePercent();
@@ -26,6 +34,9 @@ const getRelayerFeePercent = async (settlement: SettlementLogic) => {
     return _relayerFeePercent;
 }
 
+/**
+ * Load minMarginOrderTxFee from Settlement contract
+ */
 const getMinMarginOrderTxFee = async (settlement: SettlementLogic) => {
     if (!_minMarginOrderTxFee) {
         _minMarginOrderTxFee = await settlement.minMarginOrderTxFee();
@@ -34,6 +45,9 @@ const getMinMarginOrderTxFee = async (settlement: SettlementLogic) => {
 }
 
 class MarginOrders {
+    /** 
+     * Load all cancelled hashes of margin orders
+     */
     private static async fetchCanceledHashes(provider: ethers.providers.BaseProvider) {
         const fromBlock = (await provider.getBlockNumber()) - BLOCKS_PER_DAY;
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
@@ -41,8 +55,11 @@ class MarginOrders {
         return (await settlement.queryFilter(filter, fromBlock)).map(event => event.args![0]);
     }
 
-    private static async fetchHashes(kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+    /**
+     * Load all margin orders hashes from MarginOrderBook contract
+     */
+    private static async fetchHashes(orderbookProvider: ethers.providers.BaseProvider) {
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, orderbookProvider);
         const length = (await orderBook.numberOfAllHashes()).toNumber();
         const pages: number[] = [];
         for (let i = 0; i * LIMIT < length; i++) pages.push(i);
@@ -51,11 +68,13 @@ class MarginOrders {
             .filter(hash => hash !== ethers.constants.HashZero);
     }
 
-    static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
+    /**
+     * Load details of all margin orders, not include canceled, filled, expired orders
+     */
+    static async fetch(provider: ethers.providers.BaseProvider, orderbookProvider: ethers.providers.BaseProvider) {
         try {
-            const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
             const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
-            const hashes = await MarginOrders.fetchHashes(kovanProvider);
+            const hashes = await MarginOrders.fetchHashes(orderbookProvider);
             const now = Math.floor(Date.now() / 1000);
             const orders = (
                 await Promise.all(
@@ -65,9 +84,8 @@ class MarginOrders {
                             const added = await Db.checkOrderHash(hash);
                             if (added) return null;
 
-                            const order = await this.fetchOrder(hash, provider, kovanProvider);
+                            const order = await this.fetchOrder(hash, provider, orderbookProvider);
                             if (order.deadline.toNumber() < now) return null;
-                            const filledAmountIn = await settlement.filledAmountInOfHash(hash);
                             if (await this.checkFilledOrder(order, provider)) {
                                 return null;
                             }
@@ -88,8 +106,11 @@ class MarginOrders {
         }
     }
 
-    static async fetchOrder(hash: string, provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
-        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+    /**
+     * Load details of order hash
+     */
+    static async fetchOrder(hash: string, provider: ethers.providers.BaseProvider, orderbookProvider: ethers.providers.BaseProvider) {
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, orderbookProvider);
         const {
             loanId,
             leverageAmount,
@@ -128,18 +149,25 @@ class MarginOrders {
         return order;
     }
 
+    /**
+     * Observe orders created, cancelled
+     */
     static watch(
         onCreateOrder: OnCreateOrder,
         onCancelOrder: OnCancelOrder,
         provider: ethers.providers.BaseProvider,
-        kovanProvider: ethers.providers.BaseProvider
+        orderbookProvider: ethers.providers.BaseProvider
     ) {
-        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, kovanProvider);
+        const orderBook = OrderBookMarginLogic__factory.connect(config.contracts.orderBookMargin, orderbookProvider);
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         orderBook.on("MarginOrderCreated", onCreateOrder);
         settlement.on("MarginOrderCanceled", onCancelOrder);
     }
 
+    /**
+     * This function will load the Token address of loan contract of a margin order.
+     * We only have several loan contracts, so store all loaded token on local mapping `loanAssets` would be better
+     */
     static loanAssets = {};
     static async checkLoanAdr(order: MarginOrder, provider: ethers.providers.BaseProvider) {
         if (!order.loanAssetAdr) {
@@ -154,7 +182,7 @@ class MarginOrders {
     }
 
     /**
-     * return total deposited amount in loan token
+     * Return total deposited amount in loan token
      */
     static async getTotalDeposited(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
         let totalDeposited: BigNumber = order.loanTokenSent;
@@ -167,6 +195,9 @@ class MarginOrders {
         return totalDeposited;
     }
 
+    /**
+     * Calculate size of margin order in usd amount
+     */
     static async getOrderSize(order: MarginOrder, provider: ethers.providers.BaseProvider) : Promise<BigNumber> {
         const loanAssetAdr = await this.checkLoanAdr(order, provider);
         const totalDeposited = await this.getTotalDeposited(order, provider);
@@ -174,6 +205,10 @@ class MarginOrders {
         return orderSizeInUsd;
     }
 
+    /**
+     * Parse margin order from JSON object
+     * This will be used when loading order details from db
+     */
     static parseOrder(json: any): MarginOrder {
         try {
             return {
@@ -191,6 +226,11 @@ class MarginOrders {
         }
     }
 
+    /**
+     * Check if margin orders are valid
+     * order.loanTokenAddress need to be in config.loanContracts list
+     * order.collateralTokenAddress need to be in config.tokens list
+     */
     static validOrderParams(order: MarginOrder) {
         const loanTokenAddress = order.loanTokenAddress.toLowerCase();
         const collateralTokenAddress = order.collateralTokenAddress.toLowerCase();
@@ -202,6 +242,9 @@ class MarginOrders {
         return validLoanAdr != null && validCollToken != null;
     }
 
+    /**
+     * Calculate relayer fee
+     */
     static async estimateOrderFee(provider: ethers.providers.BaseProvider, orderSizeUsd: BigNumber) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const relayerFeePercent = await getRelayerFeePercent(settlement);
@@ -214,6 +257,10 @@ class MarginOrders {
         return orderFee;
     }
 
+    /**
+     * Check if a margin order could be filled or not.
+     * Order could be filled when price of position size on AMM >= order.minEntryPrice
+     */
     static async checkTradable(provider: ethers.providers.BaseProvider, order: MarginOrder) {
         const totalDeposited = await this.getTotalDeposited(order, provider);
         const orderSize = await Utils.convertUsdAmount(order.loanAssetAdr, totalDeposited);
@@ -255,6 +302,9 @@ class MarginOrders {
         return orderSize.gt(config.minOrderSize) && curPrice.gte(order.minEntryPrice);
     }
 
+    /**
+     * Load order details for orderbook showing on client
+     */
     static async parseOrderDetail(order: MarginOrder, checkFee = false) {
         await this.checkLoanAdr(order, RSK.Mainnet.provider);
         const orderDetail: any = {
@@ -303,6 +353,9 @@ class MarginOrders {
         return orderDetail;
     }
 
+    /**
+     * Check if margin order was filled or not
+     */
     static async checkFilledOrder(order: MarginOrder, provider: ethers.providers.BaseProvider) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
         const filledAmountIn = await settlement.filledAmountInOfHash(order.hash);

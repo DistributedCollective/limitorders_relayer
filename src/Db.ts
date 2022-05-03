@@ -1,4 +1,6 @@
-// const sqlite3 = require('sqlite3').verbose();
+/**
+ * DB controller
+ */
 import * as path from "path";
 import * as SQLite3 from 'sqlite3';
 import Log from "./Log";
@@ -54,6 +56,9 @@ class DbCtrl {
         return isSpot ? this.spotModel : this.marginModel;
     }
 
+    /**
+     * Check order hash added on db
+     */
     async checkOrderHash(hash: string) {
         let isSpot = true;
         let model: any = await this.spotModel.findOne({ hash: hash });
@@ -72,6 +77,9 @@ class DbCtrl {
             MarginOrders.parseOrder(json);
     }
 
+    /**
+     * Insert spot order
+     */
     async addOrder(order: Order, { status = 'matched'} = {}) {
         try {
             const exists = await this.spotModel.findOne({ hash: order.hash });
@@ -92,6 +100,9 @@ class DbCtrl {
         }
     }
 
+    /**
+     * Insert margin order
+     */
     async addMarginOrder(order: MarginOrder, { status = 'matched' } = {}) {
         try {
             const exists = await this.marginModel.findOne({ hash: order.hash });
@@ -113,6 +124,9 @@ class DbCtrl {
         }
     }
 
+    /**
+     * Update successful filled order with profit
+     */
     async updateFilledOrder(relayer: string, hash: string, txHash: string, status: string, profit: string, isSpot = true) {
         try {
             const old: any = await this.getModel(isSpot).findOne({ hash });
@@ -128,6 +142,9 @@ class DbCtrl {
         }
     }
 
+    /**
+     * Update status of orders in hash list
+     */
     async updateOrdersStatus(hashList: string[], status: string, batchId = null, isSpot = true) {
         const updateObj: any = { status };
         if (batchId != null) {
@@ -136,6 +153,9 @@ class DbCtrl {
         return await this.getModel(isSpot).update({ hash: hashList }, updateObj);
     }
 
+    /**
+     * Update filler of order
+     */
     async updateOrderFiller(hash: string, filler: string, isSpot = true) {
         return await this.getModel(isSpot).update({ hash: hash }, {
             relayer: filler,
@@ -143,6 +163,9 @@ class DbCtrl {
         });
     }
 
+    /**
+     * Find spot, margin orders with filter by status, pair
+     */
     async findOrders(type, { status, batchId, limit, offset, latest, pair } = {} as any) {
         const cond: any = {};
         const isSpot = type === 'spot';
@@ -177,6 +200,9 @@ class DbCtrl {
         return await this.getModel(type == 'spot').count(cond);
     }
 
+    /**
+     * Count total successful filled orders and profit
+     */
     async getTotals(last24H) {
         try {
             const adrQuery = 'LOWER(relayer) IN (' + config.accounts.map(acc => `'${acc.address.toLowerCase()}'`).join(',') + ')';
@@ -202,6 +228,9 @@ class DbCtrl {
         }
     }
 
+    /**
+     * List all spot, margin pairs
+     */
     async listAllPairs(isSpot = true) {
         const tbModel = this.getModel(isSpot);
         const sqlQuery = `SELECT pair from ${tbModel.table} GROUP BY pair`;
