@@ -27,24 +27,29 @@ class PriceFeeds {
      */
     async updatePairs(pairs: Pair[]) {
         this.pairs = pairs;
-        await Promise.all(pairs.map(async (pair) => {
-            const fromToken = pair.token0;
-            const toToken = pair.token1;
-            const pairSymbol = `${fromToken.symbol}/${toToken.symbol}`;
-            let price;
-            // try {
-            //     const { rate, precision } = await this.priceFeeds.queryRate(fromToken.address, toToken.address);
-            //     price = BigNumber.from(rate).mul(ethers.constants.WeiPerEther).div(precision);
-            // } catch (er) {
-            //     Log.d(`Failed to check price ${pairSymbol} on PriceFeeds, checking on swap amm`);
+        try {
+            await Promise.all(pairs.map(async (pair) => {
+                const fromToken = pair.token0;
+                const toToken = pair.token1;
+                const pairSymbol = `${fromToken.symbol}/${toToken.symbol}`;
+                let price;
+                // try {
+                //     const { rate, precision } = await this.priceFeeds.queryRate(fromToken.address, toToken.address);
+                //     price = BigNumber.from(rate).mul(ethers.constants.WeiPerEther).div(precision);
+                // } catch (er) {
+                //     Log.d(`Failed to check price ${pairSymbol} on PriceFeeds, checking on swap amm`);
                 const amount = parseEther('0.0001');
                 const path = await this.swap.conversionPath(fromToken.address, toToken.address);
                 const rate = await this.swap.rateByPath(path, amount);
                 price = BigNumber.from(rate).mul(ethers.constants.WeiPerEther).div(amount);
-            // }
-            // Log.d('price', pairSymbol, '=', ethers.utils.formatEther(price));
-            this._pairPrices[pairSymbol] = price;
-        }));
+                // }
+                // Log.d('price', pairSymbol, '=', ethers.utils.formatEther(price));
+                this._pairPrices[pairSymbol] = price;
+            }));
+            Log.d('Updated all pairs price')
+        } catch(e) {
+            Log.e(e);
+        }
     }
 
     /**
@@ -55,7 +60,7 @@ class PriceFeeds {
         toToken = toToken.toLowerCase();
         if (fromToken == toToken) return "1";
 
-        const pair = this.pairs.find(p => {
+        const pair = (this.pairs || []).find(p => {
             const token0 = p.token0.address.toLowerCase();
             const token1 = p.token1.address.toLowerCase();
             return token0 == fromToken && token1 == toToken ||

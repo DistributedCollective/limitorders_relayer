@@ -1,5 +1,6 @@
 import {tokens} from '../tokens/testnet.json';
 import accounts from '../secrets/accounts';
+import telegram from '../secrets/telegram';
 
 export default {
     rpcNode: 'https://testnet.sovryn.app/rpc',
@@ -22,4 +23,5 @@ export default {
         iRBTC: "0xe67fe227e0504e8e96a34c3594795756dc26e14b",
         iDoc: "0x74e00A8CeDdC752074aad367785bFae7034ed89f",
     },
+    telegram: telegram
 };

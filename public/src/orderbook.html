@@ -66,6 +66,7 @@
                                 <th>Trader</th>
                                 <th>Filler</th>
                                 <th>Fill tx</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -96,8 +97,13 @@
                                     </a>
                                 </td>
                                 <td>
-                                    <a ng-if="order.txHash != null" href="https://dashboard.tenderly.co/tx/rsk-testnet/{{order.txHash}}" target="_blank">
+                                    <a ng-if="order.txHash != null" href="https://dashboard.tenderly.co/tx/rsk/{{order.txHash}}" target="_blank">
                                         {{ctrl.short(order.txHash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.status== 'failed'" href="javascript:" ng-click="ctrl.reOpen(order.hash, 'spot')">
+                                        re-open
                                     </a>
                                 </td>
                             </tr>
@@ -192,8 +198,13 @@
                                     </a>
                                 </td>
                                 <td>
-                                    <a ng-if="order.txHash != null" href="https://dashboard.tenderly.co/tx/rsk-testnet/{{order.txHash}}" target="_blank">
+                                    <a ng-if="order.txHash != null" href="https://dashboard.tenderly.co/tx/rsk/{{order.txHash}}" target="_blank">
                                         {{ctrl.short(order.txHash)}}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a ng-if="order.status== 'failed'" href="javascript:" ng-click="ctrl.reOpen(order.hash, 'spot')">
+                                        re-open
                                     </a>
                                 </td>
                             </tr>

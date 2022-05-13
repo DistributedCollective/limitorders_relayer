@@ -31,6 +31,10 @@ interface Config {
     accounts: RelayerAccount[];
     blockExplorer: string;
     loanContracts: { [x: string]: string };
+    telegram: {
+        apiToken: string,
+        chatId: string,
+    }
 }
 
 export interface RelayerAccount {

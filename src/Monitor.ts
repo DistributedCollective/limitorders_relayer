@@ -136,10 +136,14 @@ class Monitor {
             OrderStatus.matched,
             OrderStatus.retrying,
             OrderStatus.filling,
+        ];
+        if (status == 'canceled') statusFilter.status = [
+            OrderStatus.canceled,
             OrderStatus.failed,
             OrderStatus.failed_smallOrder,
+            OrderStatus.failed_notEnoughBalance,
+            OrderStatus.expired,
         ];
-        if (status == 'canceled') statusFilter.status = [ OrderStatus.canceled];
         if (status == 'filled') statusFilter.status = [ OrderStatus.filled, OrderStatus.success];
 
         const orders = await Db.findOrders(type, {
@@ -229,7 +233,6 @@ class Monitor {
                 this.sumVolPair(type, pair, (vol) => {
                     volSell += Number(vol.sell);
                     volBuy += Number(vol.buy);
-                    console.log(type, pair, vol);
                     resolve(null);
                 });
             });
@@ -239,6 +242,14 @@ class Monitor {
             buy: volBuy,
             sell: volSell,
         })
+    }
+
+    async reOpenFailedOrder(hash, cb) {
+        const order = await Db.checkOrderHash(hash);
+        if (order && order.status == 'failed') {
+            await Db.updateOrdersStatus([hash], OrderStatus.open)
+        }
+        cb();
     }
 }
 

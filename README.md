@@ -33,6 +33,13 @@ export default {
     ]
 }
 ```
+5. Prepare Telegram config for sending notification: create `src/secrets/telegram.ts` file contains below format:
+```
+export default {
+    apiToken: '',
+    chatId: -123
+}
+```
 
 ## Run
 ```shell script

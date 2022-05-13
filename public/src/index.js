@@ -111,10 +111,15 @@ class OrderBookCtrl {
             spot: null,
             margin: null,
         };
+        this.currentTab = 'spot';
 
         this.$scope = $scope;
         this.changeTab('spot');
         this.getNetworkData();
+
+        setInterval(() => {
+            this.listOrders(this.currentTab);
+        }, 30000);
     }
 
     static get $inject() {
@@ -167,6 +172,7 @@ class OrderBookCtrl {
     }
 
     changeTab(type) {
+        this.currentTab = type;
         this.listOrders(type, true);
         this.listPairs(type);
         this.getTotalVolumes(type);
@@ -221,6 +227,13 @@ class OrderBookCtrl {
         socket.emit('totalVolumes', type, (sumVol) => {
             p.totalVolumes[type] = sumVol;
             p.$scope.$applyAsync();
+        });
+    }
+    
+    reOpen(hash, type) {
+        const p = this;
+        socket.emit('reOpenFailedOrder', hash, () => {
+            p.listOrders(type);
         });
     }
 }

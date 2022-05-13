@@ -379,6 +379,71 @@ class MarginOrders {
         }
         return false;
     }
+
+    /**
+     * Filter margin orders that would be executed successfully by simulating fillMarginOrders transaction.
+     * Filtered out cancelled, filled orders
+     * Check if margin orders have enough rbtc balance on the settlement contract, or enough token balance on owner wallet
+     * If all params is correct, it will check if entry price does not match => re-open it
+     */
+    static async checkSimulatedTransaction(orders: MarginOrder[], provider: ethers.providers.BaseProvider) {
+        const executables: MarginOrder[] = [];
+        const p = this;
+
+        await Promise.all(orders.map(async (order) => {
+            try {
+                const txData = await p.getFillOrdersData([order], provider);
+                const simulatedTx = await provider.call(txData);
+                Log.d('simulatedTx', simulatedTx);
+                executables.push(order);
+
+            } catch (e) {
+                Log.e('Failed to simulate tx for margin order: ' + order.hash);
+                Log.e(JSON.stringify(e, null, 2));
+                const revertedError: string = e.error && e.error.body;
+                if (revertedError) {
+                    if (revertedError.indexOf('already-filled') && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
+                        return p.checkFilledOrder(order, provider);
+                    }
+                    if (revertedError.indexOf('order-canceled') && order.status != OrderStatus.canceled) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, true);
+                    }
+                    if (revertedError.indexOf('order-expired') && order.status != OrderStatus.expired) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
+                    }
+                    if (revertedError.indexOf('entry price above the minimum') && order.status != OrderStatus.open) {
+                        //re-open order for matching price next time
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.open, null, false);
+                    }
+                    if (revertedError.indexOf('insufficient-balance')) {
+                        //not enough deposited rBTC balance on Settlement
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
+                    }
+                    if (revertedError.indexOf('SafeERC20: low-level call failed')) {
+                        //not enough Token amount on owner wallet
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
+                    }
+
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.failed, null, false);
+                }
+            }
+        }));
+
+        return executables;
+    }
+
+    static async getFillOrdersData(orders: MarginOrder[], provider: ethers.providers.BaseProvider) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const args = orders.map(order => ({ order }));
+
+        if (args.length > 0) {
+            const txData = await contract.populateTransaction.fillMarginOrders(args, {
+                gasLimit: String(2000000 * orders.length)
+            });
+
+            return txData;
+        }
+    }
 }
 
 export default MarginOrders;

@@ -56,6 +56,7 @@ export const start = async (io: IO.Server) => {
         socket.on('listPairs', async (...args) => Monitor.listAllPair.call(Monitor, ...args));
         socket.on('sumVolPair', async (...args) => Monitor.sumVolPair.call(Monitor, ...args));
         socket.on('totalVolumes', async (...args) => Monitor.totalVolumes.call(Monitor, ...args));
+        socket.on('reOpenFailedOrder', async (...args) => Monitor.reOpenFailedOrder.call(Monitor, ...args));
     });
 };
 
@@ -69,12 +70,15 @@ const processSpotOrderes = async () => {
     Log.d("fetching pairs...");
     let { tokens, pairs } = await updateTokensAndPairs(mainnet.provider);
 
-    Log.d("fetching orders...");
-    const openOrders = await Orders.fetch(mainnet.provider, testnet.provider);
-    Log.d("found " + openOrders.length + " new open orders");
-    openOrders.forEach(order => {
-        Log.d("  " + order.hash);
+    new Promise(async () => {
+        Log.d("fetching orders...");
+        const openOrders = await Orders.fetch(mainnet.provider, testnet.provider);
+        Log.d("found " + openOrders.length + " new open orders");
+        openOrders.forEach(order => {
+            Log.d("  " + order.hash);
+        });
     });
+
     Orders.watch(
         async hash => {
             Log.d("order created: " + hash);
@@ -139,26 +143,24 @@ const processSpotOrderes = async () => {
  * Start checking matched margin orders on every block
  */
 const processMarginOrders = async () => {
-    Log.d("fetching margin orders...");
-    const orders = await MarginOrders.fetch(mainnet.provider, testnet.provider);
-    Log.d("found " + orders.length + " new open margin orders");
-    orders.forEach(order => {
-        Log.d("  " + order.hash);
+    new Promise(async () => {
+        Log.d("fetching margin orders...");
+        const orders = await MarginOrders.fetch(mainnet.provider, testnet.provider);
+        Log.d("found " + orders.length + " new open margin orders");
+        orders.forEach(order => {
+            Log.d("  " + order.hash);
+        });
     });
+
     MarginOrders.watch(
         async hash => {
             Log.d("margin order created: " + hash);
             const order = await MarginOrders.fetchOrder(hash, mainnet.provider, testnet.provider);
             await Db.addMarginOrder(order, { status: OrderStatus.open });
-            orders.push(order);
         },
         hash => {
             Log.d("margin order cancelled: " + hash);
-            const index = orders.findIndex(order => order.hash === hash);
-            if (index >= 0) {
-                orders.splice(index, 1);
-                Db.updateOrdersStatus([hash], OrderStatus.canceled, false);
-            }
+            Db.updateOrdersStatus([hash], OrderStatus.canceled, true);
         },
         mainnet.provider,
         testnet.provider
@@ -210,6 +212,6 @@ const updateTokensAndPairs = async (provider: ethers.providers.BaseProvider) => 
     // pairs.forEach(pair => {
     //     Log.d(`${pair.token0.symbol} - ${pair.token1.symbol}`);
     // });
-    await PriceFeeds.updatePairs(pairs);
+    PriceFeeds.updatePairs(pairs);
     return { tokens, pairs };
 };

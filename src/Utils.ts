@@ -1,3 +1,4 @@
+import { Telegram, Types } from 'telegraf'
 import { BigNumber, Contract, ethers } from "ethers";
 import config from "./config";
 import RSK from "./RSK";
@@ -6,6 +7,11 @@ import erc20Abi from "./config/abi_erc20.json";
 import Log from "./Log";
 import TokenEntry from "./types/TokenEntry";
 import { Token } from "@sushiswap/sdk";
+
+let telegramBot: Telegram;
+if (config.telegram && config.telegram.apiToken) {
+    telegramBot = new Telegram(config.telegram.apiToken);
+}
 
 export class Utils {
     static formatDate(date) {
@@ -82,5 +88,15 @@ export class Utils {
         }
         const [int, float] = String(num).split('.');
         return int + "." + (float || "0").substring(0, decimals);
+    }
+
+    static async sendTelegramMsg(msg) {
+        if (telegramBot) {
+            try {
+                await telegramBot.sendMessage(config.telegram.chatId, msg, { parse_mode: 'HTML' });
+            } catch (e) {
+                Log.e(e);
+            }
+        }
     }
 }

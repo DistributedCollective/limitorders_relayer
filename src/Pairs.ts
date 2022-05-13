@@ -28,10 +28,8 @@ class Pairs {
             tokenCombinations.map(async pair => {
                 const [tokenA, tokenB] = pair;
                 try {
-                    const path = await swapContract.conversionPath(tokenA.address, tokenB.address);
-                    const balA: any = ethers.constants.WeiPerEther.mul(1);
-                    const balB: any = await swapContract.rateByPath(path, balA);
-                    return new Pair(new TokenAmount(tokenA, balA), new TokenAmount(tokenB, balB));
+                    const bal: any = ethers.constants.WeiPerEther.mul(1);
+                    return new Pair(new TokenAmount(tokenA, bal), new TokenAmount(tokenB, bal));
                 } catch (e) {
                     return null;
                 }

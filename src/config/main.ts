@@ -1,11 +1,13 @@
 import { tokens } from '../tokens/mainnet.json';
 import accounts from '../secrets/accounts';
+import telegram from '../secrets/telegram';
 
 export default {
     mainnet: true,
     db: 'limitorders_relayer.db',
-    serverPort: 4040,
-    rpcNode: 'https://mainnet.sovryn.app/rpc',
+    serverPort: 3006,
+    rpcNode: 'http://54.189.74.215:4444',
+    //  rpcNode: 'https://mainnet.sovryn.app/rpc',
     contracts: {
         settlement: '0x823e55322a395516ac3930F4C1ad9C7c2Fe2EACd',
         orderBook: '0x1c910918d6D05feC83e2376D57226d1b08324028',
@@ -24,4 +26,5 @@ export default {
         iSUSD: "0xd8d25f03ebba94e15df2ed4d6d38276b595593c1",
         iUSDT: "0x849c47f9c259e9d62f289bf1b2729039698d8387",
     },
+    telegram: telegram
 };

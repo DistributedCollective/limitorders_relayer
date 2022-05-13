@@ -29,7 +29,8 @@
     "lodash": "^4.17.21",
     "node-fetch": "^2.6.1",
     "socket.io": "^4.4.0",
-    "sqlite3": "^5.0.2"
+    "sqlite3": "^5.0.2",
+    "telegraf": "^4.8.1"
   },
   "devDependencies": {
     "@typechain/ethers-v5": "^1.0.0",
@@ -38,6 +39,7 @@
     "@types/sqlite3": "^3.1.8",
     "copy-webpack-plugin": "6.2.1",
     "css-loader": "^5.2.0",
+    "esm": "^3.2.25",
     "prettier": "^1.16.4",
     "rimraf": "^3.0.2",
     "style-loader": "^2.0.0",

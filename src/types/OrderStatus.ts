@@ -6,8 +6,10 @@ enum OrderStatus {
     filling = "filling",
     failed = "failed",
     failed_smallOrder = "failed_smallOrder",
+    failed_notEnoughBalance = "failed_not_enough_balance",
     filled = "filled",
-    canceled = "canceled"
+    canceled = "canceled",
+    expired = "expired",
 };
 
 export default OrderStatus;

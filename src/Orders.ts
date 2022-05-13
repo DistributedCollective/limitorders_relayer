@@ -2,8 +2,8 @@
  * Spot Order controller
  * Provide all helper functions for spot order
  */
-
-import { ethers, BigNumber } from "ethers";
+import _ from 'lodash';
+import { ethers, BigNumber, Contract } from "ethers";
 import { OrderBookSwapLogic__factory, SettlementLogic, SettlementLogic__factory } from "./contracts";
 import Order from "./types/Order";
 import config from "./config";
@@ -17,6 +17,7 @@ import RSK from "./RSK";
 import TokenEntry from "./types/TokenEntry";
 import PriceFeeds from "./PriceFeeds";
 import OrderStatus from "./types/OrderStatus";
+import erc20Abi from "./config/abi_erc20.json";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -78,7 +79,6 @@ class Orders {
      */
     static async fetch(provider: ethers.providers.BaseProvider, kovanProvider: ethers.providers.BaseProvider) {
         try {
-            const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
             const canceledHashes = await Orders.fetchCanceledHashes(provider);
             const hashes = await Orders.fetchHashes(kovanProvider);
             const now = Math.floor(Date.now() / 1000);
@@ -257,7 +257,7 @@ class Orders {
      * Get arguments of a spot order for calling settlement.fillOrder methods
      */
     static async argsForOrder (order: Order, signerOrProvider: ethers.Signer | ethers.providers.BaseProvider) {
-        const contract = SettlementLogic__factory.connect(config.contracts.settlement, signerOrProvider);
+        // const contract = SettlementLogic__factory.connect(config.contracts.settlement, signerOrProvider);
         const swapContract = new ethers.Contract(config.contracts.sovrynSwap, swapAbi, signerOrProvider);
         const fromToken = order.fromToken;
         const toToken = order.toToken;
@@ -269,16 +269,7 @@ class Orders {
             path: path
         };
 
-        try {
-            const gasLimit = await contract.estimateGas.fillOrder(arg);
-            Log.d('gasLimit', Number(gasLimit));
-            return arg;
-        } catch (e) {
-            Log.w("  " + order.hash + " will revert");
-            Log.e(e);
-            await Db.updateOrdersStatus([order.hash], 'failed', true);
-            return null;
-        }
+        return arg;
     }
 
     /**
@@ -371,6 +362,77 @@ class Orders {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Filter spot orders that would be executed successfully by simulating fillOrders transaction.
+     * Filtered out cancelled, filled orders
+     * Check if spot orders have enough rbtc balance on the settlement contract, or enough token balance on owner wallet
+     * If all params is correct, it will check if amount out of AMM > order.amountOutMin, then re-open it
+     */
+    static async checkSimulatedTransaction(orders: Order[], provider: ethers.providers.BaseProvider) {
+        const executables: Order[] = [];
+        const p = this;
+
+        await Promise.all(orders.map(async (order) => {
+            try {
+                const txData = await p.getFillOrdersData([order], provider);
+                const simulatedTx = await provider.call(txData);
+                Log.d('simulatedTx', simulatedTx);
+                executables.push(order);
+
+            } catch (e) {
+                Log.e('Failed to simulate tx for spot order: ' + order.hash);
+                Log.e(JSON.stringify(e, null, 2));
+                const revertedError: string = e.error && e.error.body;
+                if (revertedError) {
+                    if (revertedError.indexOf('already-filled') && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
+                        return p.checkFilledOrder(order, provider);
+                    }
+                    if (revertedError.indexOf('order-canceled') && order.status != OrderStatus.canceled) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, true);
+                    }
+                    if (revertedError.indexOf('order-expired') && order.status != OrderStatus.expired) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
+                    }
+                    if (revertedError.indexOf('insufficient-amount-out') && order.status != OrderStatus.open) {
+                        //re-open order for matching price next time
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.open, null, true);
+                    }
+                    if (revertedError.indexOf('insufficient-balance')) {
+                        //not enough deposited rBTC balance on Settlement
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
+                    }
+                    if (revertedError.indexOf('SafeERC20: low-level call failed')) {
+                        //not enough Token amount on owner wallet
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
+                    }
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.failed, null, true);
+                }
+            }
+        }));
+
+        return executables;
+    }
+
+
+    /**
+     * Get transaction data of settlememt.fillOrders method
+     */
+    static async getFillOrdersData(orders: Order[], provider: ethers.providers.BaseProvider) {
+        const contract = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+        const args = (
+            await Promise.all(
+                orders.map(order => Orders.argsForOrder(order, provider))
+            )
+        ).filter(arg => arg !== null);
+
+        if (args.length > 0) {
+            const txData = await contract.populateTransaction.fillOrders(args, {
+                gasLimit: String(1000000 * orders.length)
+            });
+            return txData;
+        }
     }
 }
 
