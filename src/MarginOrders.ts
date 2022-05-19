@@ -394,32 +394,35 @@ class MarginOrders {
             try {
                 const txData = await p.getFillOrdersData([order], provider);
                 const simulatedTx = await provider.call(txData);
-                Log.d('simulatedTx', simulatedTx);
+                // Log.d('simulatedTx', simulatedTx);
                 executables.push(order);
+                if (order.status != OrderStatus.matched) {
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.matched, null, false);
+                }
 
             } catch (e) {
                 Log.e('Failed to simulate tx for margin order: ' + order.hash);
                 Log.e(JSON.stringify(e, null, 2));
                 const revertedError: string = e.error && e.error.body;
                 if (revertedError) {
-                    if (revertedError.indexOf('already-filled') && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
+                    if (revertedError.indexOf('already-filled') >= 0 && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
                         return p.checkFilledOrder(order, provider);
                     }
-                    if (revertedError.indexOf('order-canceled') && order.status != OrderStatus.canceled) {
-                        return Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, true);
+                    if (revertedError.indexOf('order-canceled') >= 0 && order.status != OrderStatus.canceled) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, false);
                     }
-                    if (revertedError.indexOf('order-expired') && order.status != OrderStatus.expired) {
-                        return Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
+                    if (revertedError.indexOf('order-expired') >= 0 && order.status != OrderStatus.expired) {
+                        return Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, false);
                     }
-                    if (revertedError.indexOf('entry price above the minimum') && order.status != OrderStatus.open) {
+                    if (revertedError.indexOf('entry price above the minimum') >= 0 && order.status != OrderStatus.open) {
                         //re-open order for matching price next time
                         return Db.updateOrdersStatus([order.hash], OrderStatus.open, null, false);
                     }
-                    if (revertedError.indexOf('insufficient-balance')) {
+                    if (revertedError.indexOf('insufficient-balance') >= 0) {
                         //not enough deposited rBTC balance on Settlement
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
                     }
-                    if (revertedError.indexOf('SafeERC20: low-level call failed')) {
+                    if (revertedError.indexOf('SafeERC20: low-level call failed') >= 0) {
                         //not enough Token amount on owner wallet
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
                     }
@@ -438,7 +441,7 @@ class MarginOrders {
 
         if (args.length > 0) {
             const txData = await contract.populateTransaction.fillMarginOrders(args, {
-                gasLimit: String(2000000 * orders.length)
+                gasLimit: String(2500000 * orders.length)
             });
 
             return txData;

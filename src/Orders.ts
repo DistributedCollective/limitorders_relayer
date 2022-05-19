@@ -378,32 +378,36 @@ class Orders {
             try {
                 const txData = await p.getFillOrdersData([order], provider);
                 const simulatedTx = await provider.call(txData);
-                Log.d('simulatedTx', simulatedTx);
+                // Log.d('simulatedTx', simulatedTx);
                 executables.push(order);
+
+                if (order.status != OrderStatus.matched) {
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.matched, null, true);
+                }
 
             } catch (e) {
                 Log.e('Failed to simulate tx for spot order: ' + order.hash);
                 Log.e(JSON.stringify(e, null, 2));
                 const revertedError: string = e.error && e.error.body;
                 if (revertedError) {
-                    if (revertedError.indexOf('already-filled') && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
+                    if (revertedError.indexOf('already-filled') >= 0 && (order.status != OrderStatus.filled && order.status != OrderStatus.success)) {
                         return p.checkFilledOrder(order, provider);
                     }
-                    if (revertedError.indexOf('order-canceled') && order.status != OrderStatus.canceled) {
+                    if (revertedError.indexOf('order-canceled') >= 0 && order.status != OrderStatus.canceled) {
                         return Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, true);
                     }
-                    if (revertedError.indexOf('order-expired') && order.status != OrderStatus.expired) {
+                    if (revertedError.indexOf('order-expired') >= 0 && order.status != OrderStatus.expired) {
                         return Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
                     }
-                    if (revertedError.indexOf('insufficient-amount-out') && order.status != OrderStatus.open) {
+                    if (revertedError.indexOf('insufficient-amount-out') >= 0 && order.status != OrderStatus.open) {
                         //re-open order for matching price next time
                         return Db.updateOrdersStatus([order.hash], OrderStatus.open, null, true);
                     }
-                    if (revertedError.indexOf('insufficient-balance')) {
+                    if (revertedError.indexOf('insufficient-balance') >= 0) {
                         //not enough deposited rBTC balance on Settlement
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
                     }
-                    if (revertedError.indexOf('SafeERC20: low-level call failed')) {
+                    if (revertedError.indexOf('SafeERC20: low-level call failed') >= 0) {
                         //not enough Token amount on owner wallet
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
                     }

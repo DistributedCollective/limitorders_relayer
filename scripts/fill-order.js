@@ -15,8 +15,8 @@ async function fill(hash) {
 
     let txData;
     if (order.type == 'margin') {
-        const filtered = await MarginOrders.checkSimulatedTransaction([order], provider);
-        if (!filtered || filtered.length == 0) return;
+        // const filtered = await MarginOrders.checkSimulatedTransaction([order], provider);
+        // if (!filtered || filtered.length == 0) return;
 
         txData = await MarginOrders.getFillOrdersData([order], provider);
     } else {
@@ -40,7 +40,7 @@ async function fill(hash) {
     await Db.initDb(config.db);
 
     try {
-        const res = await fill('0xa5e557e3894beca883d1114b8a06aa4d90965b02045849e4b941d0238ab6ae7b');
+        const res = await fill('0xf458706ae15b9c148bb9f571028be668a9c0b7fb59733269e9f84498fda662ba');
         console.log(res);
     } catch (e) {
         console.log('send error');
