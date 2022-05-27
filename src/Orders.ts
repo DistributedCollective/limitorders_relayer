@@ -167,6 +167,7 @@ class Orders {
             amountOutMin: BigNumber.from(orderJSON.amountOutMin),
             deadline: BigNumber.from(orderJSON.deadline),
             created: BigNumber.from(orderJSON.created),
+            matchPercent: orderJSON.matchPercent
         };
     }
 
@@ -229,6 +230,8 @@ class Orders {
                     const amountOut = await Utils.convertTokenAmount(tokenIn.address, tokenOut.address, actualAmountIn);
                     const matchPercent = amountOut.mul(100).div(amountOutMin).toNumber();
 
+                    Db.updateOrderDetail(order.hash, { ...order, matchPercent: matchPercent });
+
                     if (matchPercent > 80) {
                         Log.d(
                             'Orders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
@@ -289,6 +292,7 @@ class Orders {
             relayer: order.relayer,
             txHash: order.txHash,
             pair: order.pair,
+            matchPercent: order.matchPercent
         };
         
         const pairTokens = this.getPair(order.fromToken, order.toToken);
@@ -376,6 +380,12 @@ class Orders {
 
         await Promise.all(orders.map(async (order) => {
             try {
+                const enoughBal = await p.checkOrderOwnerBalance(order, provider);
+
+                if (!enoughBal) {
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
+                }
+
                 const txData = await p.getFillOrdersData([order], provider);
                 const simulatedTx = await provider.call(txData);
                 // Log.d('simulatedTx', simulatedTx);
@@ -408,8 +418,9 @@ class Orders {
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
                     }
                     if (revertedError.indexOf('SafeERC20: low-level call failed') >= 0) {
-                        //not enough Token amount on owner wallet
-                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
+                        //skip checking this message, not sure where it come
+                        executables.push(order);
+                        return;
                     }
                     return Db.updateOrdersStatus([order.hash], OrderStatus.failed, null, true);
                 }
@@ -437,6 +448,19 @@ class Orders {
             });
             return txData;
         }
+    }
+
+    static async checkOrderOwnerBalance(order: Order, provider: ethers.providers.BaseProvider) {
+        let bal = BigNumber.from(0);
+        if (Utils.getTokenSymbol(order.fromToken) == 'WRBTC') {
+            const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+            bal = await settlement.balanceOf(order.maker);
+        } else {
+            const token = new Contract(order.fromToken, erc20Abi, provider);
+            bal = await token.balanceOf(order.maker);
+        }
+
+        return bal.gte(order.amountIn);
     }
 }
 

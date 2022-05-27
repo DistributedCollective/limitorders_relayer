@@ -174,9 +174,30 @@ class Monitor {
      * Get total volumes in usd of spot, margin pair
      * Include total buy volumes, sell volumes
      */
-    async sumVolPair(type, pair, cb) {
-        const orders = await Db.findOrders(type, { pair, limit: -1 });
-        if (!orders || orders.length == 0) return { buy: '0', sell: '0' };
+    async sumVolPair(type, pair, status, cb) {
+        let statusFilter = null;
+        if (status == 'open') statusFilter = [
+            OrderStatus.open,
+            OrderStatus.matched,
+            OrderStatus.retrying,
+            OrderStatus.filling,
+        ];
+        if (status == 'canceled') statusFilter = [
+            OrderStatus.canceled,
+            OrderStatus.failed,
+            OrderStatus.failed_smallOrder,
+            OrderStatus.failed_notEnoughBalance,
+            OrderStatus.expired,
+        ];
+        if (status == 'filled') statusFilter = [OrderStatus.filled, OrderStatus.success];
+
+        const orders = await Db.findOrders(type, { 
+            pair,
+            status: statusFilter,
+            limit: -1
+        });
+
+        if (!orders || orders.length == 0) return cb({ buy: '0', sell: '0' });
 
         let volBuy = BigNumber.from(0);
         let volSell = BigNumber.from(0);
@@ -225,12 +246,12 @@ class Monitor {
      * Get total volumes in usd of all spot, margin orders
      * Include total buy volumes, sell volumes
      */
-    async totalVolumes(type, cb) {
+    async totalVolumes(type, status, cb) {
         const allPairs = await Db.listAllPairs(type == 'spot');
         let volSell = 0, volBuy = 0;
         await Promise.all(allPairs.map((pair) => {
             return new Promise(resolve => {
-                this.sumVolPair(type, pair, (vol) => {
+                this.sumVolPair(type, pair, status, (vol) => {
                     volSell += Number(vol.sell);
                     volBuy += Number(vol.buy);
                     resolve(null);
@@ -246,8 +267,8 @@ class Monitor {
 
     async reOpenFailedOrder(hash, cb) {
         const order = await Db.checkOrderHash(hash);
-        if (order && order.status == 'failed') {
-            await Db.updateOrdersStatus([hash], OrderStatus.open)
+        if (order && (order.status == 'failed' || order.status == 'failed_not_enough_balance')) {
+            await Db.updateOrdersStatus([hash], OrderStatus.open, null, order.type == 'spot');
         }
         cb();
     }

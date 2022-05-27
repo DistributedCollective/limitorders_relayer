@@ -6,8 +6,7 @@ export default {
     mainnet: true,
     db: 'limitorders_relayer.db',
     serverPort: 3006,
-    rpcNode: 'http://54.189.74.215:4444',
-    //  rpcNode: 'https://mainnet.sovryn.app/rpc',
+    rpcNode: 'https://mainnet.sovryn.app/rpc',
     contracts: {
         settlement: '0x823e55322a395516ac3930F4C1ad9C7c2Fe2EACd',
         orderBook: '0x1c910918d6D05feC83e2376D57226d1b08324028',

@@ -8,7 +8,7 @@ import Log from "./Log";
 import SpotTrade from "./models/SpotTrade";
 import MarginTrade from "./models/MarginTrade";
 import MarginOrder from "./types/MarginOrder";
-import Order from "./types/Order";
+import Order, { BaseOrder } from "./types/Order";
 import Orders from "./Orders";
 import MarginOrders from "./MarginOrders";
 import { Utils } from "./Utils";
@@ -119,6 +119,24 @@ class DbCtrl {
                 orderTime: Utils.formatDate(Number(order.createdTimestamp)),
                 detail: JSON.stringify(order)
             });
+        } catch (e) {
+            Log.e(e);
+        }
+    }
+
+    async updateOrderDetail(hash: string, detail: BaseOrder) {
+        try {
+            const { type } = (await this.checkOrderHash(hash)) || {};
+            if (!type) return;
+            if (type == 'spot') {
+                await this.spotModel.update({ hash }, {
+                    detail: JSON.stringify({ ...detail, trade: undefined })
+                });
+            } else {
+                await this.marginModel.update({ hash }, {
+                    detail: JSON.stringify(detail)
+                });
+            }
         } catch (e) {
             Log.e(e);
         }

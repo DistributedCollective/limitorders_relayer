@@ -16,6 +16,7 @@ import RSK from "./RSK";
 import Orders from "./Orders";
 import PriceFeeds from "./PriceFeeds";
 import OrderStatus from "./types/OrderStatus";
+import erc20Abi from "./config/abi_erc20.json";
 
 export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
@@ -219,6 +220,7 @@ class MarginOrders {
                 minEntryPrice: BigNumber.from(json.minEntryPrice),
                 deadline: BigNumber.from(json.deadline),
                 createdTimestamp: BigNumber.from(json.createdTimestamp),
+                matchPercent: json.matchPercent,
             };
         } catch (error) {
             console.log(json)
@@ -289,6 +291,8 @@ class MarginOrders {
         const collSymb = Utils.getTokenSymbol(order.collateralTokenAddress);
 
         const matchPercent = curPrice.mul(100).div(order.minEntryPrice).toNumber();
+        Db.updateOrderDetail(order.hash, { ...order, matchPercent: matchPercent });
+
         if (matchPercent > 80) {
             Log.d(
                 'MarginOrders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
@@ -323,6 +327,7 @@ class MarginOrders {
             status: order.status,
             relayer: order.relayer,
             txHash: order.txHash,
+            matchPercent: order.matchPercent,
         };
         const pairTokens = Orders.getPair(order.loanAssetAdr, order.collateralTokenAddress);
         orderDetail.pair = pairTokens[0].name + '/' + pairTokens[1].name;
@@ -392,6 +397,12 @@ class MarginOrders {
 
         await Promise.all(orders.map(async (order) => {
             try {
+                const enoughBal = await p.checkOrderOwnerBalance(order, provider);
+
+                if (!enoughBal) {
+                    return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
+                }
+
                 const txData = await p.getFillOrdersData([order], provider);
                 const simulatedTx = await provider.call(txData);
                 // Log.d('simulatedTx', simulatedTx);
@@ -423,8 +434,9 @@ class MarginOrders {
                         return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
                     }
                     if (revertedError.indexOf('SafeERC20: low-level call failed') >= 0) {
-                        //not enough Token amount on owner wallet
-                        return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
+                        //skip checking this message, not sure where it come
+                        executables.push(order);
+                        return;
                     }
 
                     return Db.updateOrdersStatus([order.hash], OrderStatus.failed, null, false);
@@ -446,6 +458,26 @@ class MarginOrders {
 
             return txData;
         }
+    }
+
+    static async checkOrderOwnerBalance(order: MarginOrder, provider: ethers.providers.BaseProvider) {
+
+        const getBal = async (tokenAdr: string, address: string): Promise<BigNumber> => {
+            if (Utils.getTokenSymbol(tokenAdr) == 'WRBTC') {
+                const settlement = SettlementLogic__factory.connect(config.contracts.settlement, provider);
+                return await settlement.balanceOf(address);
+            } else {
+                const token = new Contract(tokenAdr, erc20Abi, provider);
+                return await token.balanceOf(address);
+            }
+        }
+
+        const [balLoanToken, balColToken] = await Promise.all([
+            order.loanTokenSent.gt(0) ? getBal(order.loanAssetAdr, order.trader) : BigNumber.from(0),
+            order.collateralTokenSent.gt(0) ? getBal(order.collateralTokenAddress, order.trader) : BigNumber.from(0),
+        ]);
+
+        return balLoanToken.gte(order.loanTokenSent) && balColToken.gte(order.collateralTokenSent);
     }
 }
 

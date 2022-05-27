@@ -186,7 +186,7 @@ const processMarginOrders = async () => {
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
-                await Db.updateOrdersStatus([hash], OrderStatus.filled, false);
+                await Db.updateOrdersStatus([hash], OrderStatus.filled, null, false);
             }
         }
     });

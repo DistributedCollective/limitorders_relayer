@@ -9,6 +9,7 @@ export interface BaseOrder {
     txHash?: string;
     type?: string;
     pair?: string;
+    matchPercent?: number;
 }
 
 interface Order extends BaseOrder {

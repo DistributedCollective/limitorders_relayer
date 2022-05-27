@@ -35,7 +35,17 @@ async function fill(hash) {
     return await tx.wait();
 }
 
+async function test(){
+    provider.on("block", async blockNumber => {
+        console.log("block: " + blockNumber);
+    });
+   
+}
 
+test();
+
+
+/*
 (async () => {
     await Db.initDb(config.db);
 
@@ -47,3 +57,5 @@ async function fill(hash) {
         console.log(JSON.stringify(e, null, 2));
     }
 })();
+
+*/
