@@ -6,7 +6,7 @@ import {
 import _ from 'lodash';
 import swapAbi from "./config/abi_sovrynSwap.json";
 import erc20Abi from "./config/abi_erc20.json";
-import { BigNumber, Contract, ContractReceipt, ethers, PopulatedTransaction } from "ethers";
+import { BigNumber, Contract, ContractReceipt, ethers, PopulatedTransaction, Event } from "ethers";
 import Order, { BaseOrder } from "./types/Order";
 import Log from "./Log";
 import { SettlementLogic__factory } from "./contracts";
@@ -23,12 +23,14 @@ import OrderStatus from "./types/OrderStatus";
 export type OnOrderFilled = (
     hash: string,
     amountIn: ethers.BigNumber,
-    amountOut: ethers.BigNumber
+    amountOut: ethers.BigNumber,
+    filledPrice: ethers.BigNumber
 ) => Promise<void> | void;
 
 export type OnFeeTransferred = (
     hash: string,
-    recipient: string
+    recipient: string,
+    event: Event
 ) => Promise<void> | void;
 
 
@@ -78,7 +80,9 @@ class Executor {
      */
     watch(onOrderFilled: OnOrderFilled) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
-        settlement.on("OrderFilled", onOrderFilled);
+        settlement.on("OrderFilled", (hash, maker, amountIn, amountOut, path, filledPrice) => {
+            onOrderFilled(hash, amountIn, amountOut, filledPrice);
+        });
     }
 
     /**
@@ -86,7 +90,9 @@ class Executor {
      */
     watchMargin(onOrderFilled: OnOrderFilled) {
         const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
-        settlement.on("MarginOrderFilled", onOrderFilled);
+        settlement.on("MarginOrderFilled",  (hash, trader, pricipal, collateral) => {
+            onOrderFilled(hash, BigNumber.from(0), BigNumber.from(0), BigNumber.from(0));
+        });
     }
 
     /**
@@ -106,23 +112,36 @@ class Executor {
     }
 
     /**
+     * Get canceled status of order hash
+     */
+    async checkCanceledOrder(hash: string) {
+        const settlement = SettlementLogic__factory.connect(config.contracts.settlement, this.provider);
+        return await settlement.canceledOfHash(hash);
+    }
+
+    /**
      * Check all open spot orders in db and mark it as 'matched' when order could be filled
      */
-    async matchSpotOrders(tokens: Token[], pairs: Pair[], timeout: number) {
+    async matchSpotOrders(tokens: Token[], pairs: Pair[]) {
         const executables: Order[] = [];
         const openOrders: Order[] = await Db.findOrders('spot', {
-            status: OrderStatus.open,
+            status: [OrderStatus.open, OrderStatus.filling, OrderStatus.retrying],
             latest: true,
             batchId: null
         });
         Log.d(`Checking ${openOrders.length} open spot orders`);
 
-        for (const order of openOrders) {
+        const process1Order = async (order: Order) => {
             const orderInDb = await Db.checkOrderHash(order.hash);
 
             // skip checking orders if it's been filled in another round
-            if (orderInDb.status != OrderStatus.open || this.checkingHashes[order.hash]) {
-                continue;
+            if (orderInDb.status != OrderStatus.open) {
+                Orders.checkFilledOrder(order, this.provider);
+                return;
+            }
+
+            if (this.checkingHashes[order.hash]) {
+                return;
             }
 
             this.checkingHashes[order.hash] = true;
@@ -132,12 +151,16 @@ class Executor {
             const toToken = Utils.findToken(tokens, order.toToken);
             const isExpired = order.deadline.toNumber() * 1000 < now;
             const isFilled = await Orders.checkFilledOrder(order, this.provider);
+            const isCanceled = await this.checkCanceledOrder(order.hash);
 
             if (isExpired) {
                 await Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
             }
+            if (isCanceled) {
+                await Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, true);
+            }
 
-            if (fromToken && toToken && !isExpired && !isFilled) {
+            if (fromToken && toToken && !isExpired && !isFilled && !isCanceled) {
                 const tradable = await Orders.checkTradable(
                     this.provider,
                     pairs,
@@ -162,8 +185,14 @@ class Executor {
             }
 
             delete this.checkingHashes[order.hash];
-            if (Date.now() - now > timeout) break;
+        };
+
+        const batches = _.chunk(openOrders, 10);
+        for (const orders of batches) {
+            await Promise.all(orders.map(order => process1Order(order)));
         }
+
+        Log.d(`completed checking ${openOrders.length} open spot orders, has ${executables.length} tradable orders`);
 
         return executables;
     }
@@ -173,30 +202,41 @@ class Executor {
      */
     async matchMarginOrders() {
         const openOrders: MarginOrder[] = await Db.findOrders('margin', {
-            status: OrderStatus.open,
+            status: [OrderStatus.open, OrderStatus.filling, OrderStatus.retrying],
             latest: true,
             batchId: null
         });
         Log.d(`Checking ${openOrders.length} open margin orders`);
         const executables: MarginOrder[] = [];
 
-        for (const order of openOrders) {
+        const process1Order =async (order: MarginOrder) => {
             const orderInDb = await Db.checkOrderHash(order.hash);
-            if (orderInDb.status != OrderStatus.open || this.checkingHashes[order.hash]) {
-                continue;
+
+            if (orderInDb.status != OrderStatus.open) {
+                MarginOrders.checkFilledOrder(order, this.provider);
+                return;
+            }
+
+            if (this.checkingHashes[order.hash]) {
+                return;
             }
 
             const now = Date.now();
             const isExpired = order.deadline.toNumber() * 1000 < now;
             const isFilled = await MarginOrders.checkFilledOrder(order, this.provider);
+            const isCanceled = await this.checkCanceledOrder(order.hash);
+
+            if (isCanceled) {
+                await Db.updateOrdersStatus([order.hash], OrderStatus.canceled, null, false);
+            }
 
             if (isExpired) {
-                await Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, true);
+                await Db.updateOrdersStatus([order.hash], OrderStatus.expired, null, false);
             }
-            
+
             this.checkingHashes[order.hash] = true;
             const tradable = await MarginOrders.checkTradable(this.provider, order);
-            if (tradable && !isExpired && !isFilled) {
+            if (tradable && !isExpired && !isFilled && !isCanceled) {
                 executables.push(order);
                 await Db.updateOrdersStatus([order.hash], OrderStatus.matched, null, false);
                 Log.d(`Margin order matched: ` + order.hash);
@@ -204,6 +244,13 @@ class Executor {
 
             delete this.checkingHashes[order.hash];
         }
+
+        const batches = _.chunk(openOrders, 10);
+        for (const orders of batches) {
+            await Promise.all(orders.map(order => process1Order(order)));
+        }
+
+        Log.d(`completed checking ${openOrders.length} open margin orders, has ${executables.length} tradable orders`);
 
         return executables;
     }
@@ -287,11 +334,14 @@ class Executor {
                     Log.e('tx failed', err.transactionHash);
 
                     if (batchOrders.length === 1) {
+                        const dbOrder = await Db.checkOrderHash(batchOrders[0].hash);
 
-                        if (isSpotOrder) {
-                            await Orders.checkSimulatedTransaction(batchOrders as Order[], this.provider);
-                        } else {
-                            await MarginOrders.checkSimulatedTransaction(batchOrders as MarginOrder[], this.provider);
+                        if (dbOrder && dbOrder.status != OrderStatus.filled) {
+                            if (isSpotOrder) {
+                                await Orders.checkSimulatedTransaction(batchOrders as Order[], this.provider);
+                            } else {
+                                await MarginOrders.checkSimulatedTransaction(batchOrders as MarginOrder[], this.provider);
+                            }
                         }
 
                     } else {

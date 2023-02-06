@@ -77,28 +77,38 @@ class MarginOrders {
             const canceledHashes = await MarginOrders.fetchCanceledHashes(provider);
             const hashes = await MarginOrders.fetchHashes(orderbookProvider);
             const now = Math.floor(Date.now() / 1000);
-            const orders = (
-                await Promise.all(
-                    hashes
-                        .filter(hash => !canceledHashes.includes(hash))
-                        .map(async hash => {
-                            const added = await Db.checkOrderHash(hash);
-                            if (added) return null;
+            const batchSize = 10;
+            const orders = [];
 
-                            const order = await this.fetchOrder(hash, provider, orderbookProvider);
-                            if (order.deadline.toNumber() < now) return null;
-                            if (await this.checkFilledOrder(order, provider)) {
-                                return null;
-                            }
-                            if (!this.validOrderParams(order)) return null;
-                            return order;
-                        })
-                )
-            ).filter(order => !!order);
+            for (let i = 0; i < hashes.length; i += batchSize) {
+                const batchedHashes = hashes.slice(i, i+batchSize);
+                const _orders = (
+                    await Promise.all(
+                        batchedHashes
+                            .filter(hash => !canceledHashes.includes(hash))
+                            .map(async hash => {
+                                const added = await Db.checkOrderHash(hash);
+                                if (added) return null;
+    
+                                const order = await this.fetchOrder(hash, provider, orderbookProvider);
+                                if (order.deadline.toNumber() < now) return null;
+                                if (await this.checkFilledOrder(order, provider)) {
+                                    return null;
+                                }
+                                if (!this.validOrderParams(order)) return null;
 
-            for (const order of orders) {
-                await Db.addMarginOrder(order, { status: OrderStatus.open });
+                                await Db.addMarginOrder(order, { status: OrderStatus.open });
+    
+                                return order;
+                            })
+                    )
+                ).filter(order => !!order);
+
+                if (_orders.length > 0) {
+                    orders.push(..._orders);
+                }
             }
+
 
             return orders;
         } catch (e) {
@@ -293,7 +303,7 @@ class MarginOrders {
         const matchPercent = curPrice.mul(100).div(order.minEntryPrice).toNumber();
         Db.updateOrderDetail(order.hash, { ...order, matchPercent: matchPercent });
 
-        if (matchPercent > 80) {
+        if (matchPercent > 90) {
             Log.d(
                 'MarginOrders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
                 '\n\t orderSize', formatEther(orderSize) + '$',
@@ -374,11 +384,13 @@ class MarginOrders {
 
                     if (filler) {
                         await Db.addMarginOrder(order, { status: OrderStatus.filled });
-                        await Db.updateOrderFiller(order.hash, filler, false);
+                        await Db.updateOrderFiller(order.hash, {filler, isSpot: false, filledTx: event[0].transactionHash});
                         console.log("Check margin order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
                     }
                     resolve(null);
                 });
+            } else if (added.status != OrderStatus.filled) {
+                Db.updateOrdersStatus([order.hash], OrderStatus.filled, null, false);
             }
             return true;
         }

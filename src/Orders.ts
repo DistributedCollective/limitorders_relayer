@@ -82,25 +82,36 @@ class Orders {
             const canceledHashes = await Orders.fetchCanceledHashes(provider);
             const hashes = await Orders.fetchHashes(kovanProvider);
             const now = Math.floor(Date.now() / 1000);
-            const orders = (
-                await Promise.all(
-                    hashes
-                        .filter(hash => !canceledHashes.includes(hash))
-                        .map(async hash => {
-                            const added = await Db.checkOrderHash(hash);
-                            if (added) return null;
 
-                            const order = await this.fetchOrder(hash, kovanProvider);
-                            if (order.deadline.toNumber() < now) return null;
-                            if (await this.checkFilledOrder(order, provider)) return null;
-                            if (!this.validOrderParams(order)) return null;
-                            return order;
-                        })
-                )
-            ).filter(order => !!order);
+            const batchSize = 10;
+            const orders = [];
 
-            for (const order of orders) {
-                await Db.addOrder(order, { status: OrderStatus.open });
+            for (let i = 0; i < hashes.length; i += batchSize) {
+                const batchedHashes = hashes.slice(i, i+batchSize);
+
+                const _orders = (
+                    await Promise.all(
+                        batchedHashes
+                            .filter(hash => !canceledHashes.includes(hash))
+                            .map(async hash => {
+                                const added = await Db.checkOrderHash(hash);
+                                if (added) return null;
+    
+                                const order = await this.fetchOrder(hash, kovanProvider);
+                                if (order.deadline.toNumber() < now) return null;
+                                if (await this.checkFilledOrder(order, provider)) return null;
+                                if (!this.validOrderParams(order)) return null;
+    
+                                await Db.addOrder(order, { status: OrderStatus.open });
+
+                                return order;
+                            })
+                    )
+                ).filter(order => !!order);
+
+                if (_orders.length > 0) {
+                    orders.push(..._orders);
+                }
             }
 
             return orders;
@@ -232,7 +243,7 @@ class Orders {
 
                     Db.updateOrderDetail(order.hash, { ...order, matchPercent: matchPercent });
 
-                    if (matchPercent > 80) {
+                    if (matchPercent > 90) {
                         Log.d(
                             'Orders.checkTradable: hash', order.hash, matchPercent.toFixed(1) + '% matched',
                             '\n\tamountIn', formatEther(amountIn),
@@ -336,7 +347,9 @@ class Orders {
     static getPair(adr1: string, adr2: string): TokenEntry[] {
         const i1 = config.tokens.findIndex(t => t.address.toLowerCase() == adr1.toLowerCase());
         const i2 = config.tokens.findIndex(t => t.address.toLowerCase() == adr2.toLowerCase());
-        if (i1 < 0 || i2 < 0) throw "Wrong token";
+        if (i1 < 0 || i2 < 0) {
+            throw "Wrong token: " + adr1 + '-' + adr2;
+        }
 
         return i1 < i2 ? [config.tokens[i1], config.tokens[i2]]
             : [config.tokens[i2], config.tokens[i1]];
@@ -358,11 +371,13 @@ class Orders {
                     const filler = event && event[0] && event[0].args && event[0].args.recipient;
                     if (filler) {
                         await Db.addOrder(order, { status: OrderStatus.filled });
-                        await Db.updateOrderFiller(order.hash, filler, true);
+                        await Db.updateOrderFiller(order.hash, {filler, isSpot: true, filledTx: event[0].transactionHash});
                         console.log("Check spot order %s filled, amount %s, filler %s", order.hash, formatEther(filledAmountIn), filler);
                     }
                     resolve(null);
                 });
+            } else if (added.status != OrderStatus.filled) {
+                Db.updateOrdersStatus([order.hash], OrderStatus.filled, null, true);
             }
             return true;
         }
@@ -470,3 +485,4 @@ class Orders {
 }
 
 export default Orders;
+

@@ -106,20 +106,25 @@ const processSpotOrderes = async () => {
         // every 1 minute
         if (blockNumber % 2 === 0) {
             try {
-                await executor.matchSpotOrders(tokens, pairs, 200000);
+                await executor.matchSpotOrders(tokens, pairs);
             } catch (e) {
                 Log.e("error: " + e.reason || e.message || e.toString());
                 console.error(e);
             }
         }
     });
-    executor.watch(async hash => {
+    executor.watch(async (hash, amountIn, amountOut, filledPrice) => {
         Log.d("order filled: " + hash);
         const order = await Db.checkOrderHash(hash) as Order;
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.amountIn)) {
-                await Db.updateOrdersStatus([hash], OrderStatus.filled, true);
+                // await Db.updateOrdersStatus([hash], OrderStatus.filled, true);
+                await Db.updateOrderFiller(hash, {
+                    filler: null,
+                    filledPrice: ethers.utils.formatEther(filledPrice),
+                    isSpot: true
+                });
             }
         }
     });
@@ -180,21 +185,30 @@ const processMarginOrders = async () => {
             }
         }
     });
-    executor.watchMargin(async hash => {
+    executor.watchMargin(async (hash, amountIn, amountOut, filledPrice) => {
         Log.d("order filled: " + hash);
         const order = await Db.checkOrderHash(hash) as MarginOrder;
         if (order) {
             const filledAmountIn = await executor.filledAmountIn(order.hash);
             if (filledAmountIn.eq(order.collateralTokenSent.add(order.loanTokenSent))) {
-                await Db.updateOrdersStatus([hash], OrderStatus.filled, null, false);
+                // await Db.updateOrdersStatus([hash], OrderStatus.filled, null, false);
+                await Db.updateOrderFiller(hash, {
+                    filler: null,
+                    filledPrice: ethers.utils.formatEther(filledPrice),
+                    isSpot: false
+                });
             }
         }
     });
 
-    executor.watchFeeTranfered(async (hash, filler) => {
+    executor.watchFeeTranfered(async (hash, filler, event) => {
         const order = await Db.checkOrderHash(hash);
         if (order && !order.relayer) {
-            await Db.updateOrderFiller(hash, filler, order.type == 'spot');
+            await Db.updateOrderFiller(hash, {
+                filler,
+                isSpot: order.type == 'spot',
+                filledTx: event && event.transactionHash
+            });
         }
     });
 };

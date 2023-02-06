@@ -9,6 +9,7 @@ import SpotTrade from "./models/SpotTrade";
 import MarginTrade from "./models/MarginTrade";
 import MarginOrder from "./types/MarginOrder";
 import Order, { BaseOrder } from "./types/Order";
+import OrderStatus from "./types/OrderStatus";
 import Orders from "./Orders";
 import MarginOrders from "./MarginOrders";
 import { Utils } from "./Utils";
@@ -80,7 +81,7 @@ class DbCtrl {
     /**
      * Insert spot order
      */
-    async addOrder(order: Order, { status = 'matched'} = {}) {
+    async addOrder(order: Order, { status = OrderStatus.matched } = {}) {
         try {
             const exists = await this.spotModel.findOne({ hash: order.hash });
             if (exists) return null;
@@ -90,7 +91,7 @@ class DbCtrl {
             return await this.spotModel.insert({
                 hash: order.hash,
                 pair: pair,
-                status: status || 'matched',
+                status: status || OrderStatus.matched,
                 owner: order.maker,
                 orderTime: Utils.formatDate(Number(order.created)),
                 detail: JSON.stringify({ ...order, trade: undefined })
@@ -103,7 +104,7 @@ class DbCtrl {
     /**
      * Insert margin order
      */
-    async addMarginOrder(order: MarginOrder, { status = 'matched' } = {}) {
+    async addMarginOrder(order: MarginOrder, { status = OrderStatus.matched } = {}) {
         try {
             const exists = await this.marginModel.findOne({ hash: order.hash });
             if (exists) return null;
@@ -114,7 +115,7 @@ class DbCtrl {
             return await this.marginModel.insert({
                 hash: order.hash,
                 pair: pair,
-                status: status || 'matched',
+                status: status || OrderStatus.matched,
                 owner: order.trader,
                 orderTime: Utils.formatDate(Number(order.createdTimestamp)),
                 detail: JSON.stringify(order)
@@ -174,11 +175,22 @@ class DbCtrl {
     /**
      * Update filler of order
      */
-    async updateOrderFiller(hash: string, filler: string, isSpot = true) {
-        return await this.getModel(isSpot).update({ hash: hash }, {
-            relayer: filler,
+    async updateOrderFiller(hash: string, {filler, isSpot = true, filledTx = null, filledPrice = null}) {
+        const old: any = await this.getModel(isSpot).findOne({ hash });
+        const detail = JSON.parse(old.detail);
+        const updateData: any = {
+            status: OrderStatus.filled,
             filledAdded: Utils.formatDate(Date.now() / 1000)
-        });
+        };
+
+        if (filler) updateData.relayer = filler;
+        if (filledTx) updateData.txHash = filledTx;
+        if (filledPrice) {
+            detail.filledPrice = filledPrice;
+            updateData.detail = JSON.stringify(detail);
+        }
+
+        return await this.getModel(isSpot).update({ hash: hash }, updateData);
     }
 
     /**
