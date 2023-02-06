@@ -64,6 +64,7 @@
                                 <th>Status</th>
                                 <th>Hash</th>
                                 <th>Trader</th>
+                                <th>Filled Price</th>
                                 <th>Filler</th>
                                 <th>Fill tx</th>
                                 <th></th>
@@ -101,10 +102,9 @@
                                         {{ctrl.short(order.txHash)}}
                                     </a>
                                 </td>
+                                <td>{{ order.filledPrice }}</td>
                                 <td>
-                                    <a ng-if="order.status== 'failed'" href="javascript:" ng-click="ctrl.reOpen(order.hash, 'spot')">
-                                        re-open
-                                    </a>
+                                    <a ng-if="order.status== 'failed' || order.status == 'failed_not_enough_balance' || order.status == 'filling'" href="javascript:" ng-click="ctrl.reOpen(order.hash, 'spot')">
                                 </td>
                             </tr>
                         </tbody>
