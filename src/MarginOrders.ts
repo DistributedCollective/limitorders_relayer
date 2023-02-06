@@ -400,6 +400,10 @@ class MarginOrders {
                 const enoughBal = await p.checkOrderOwnerBalance(order, provider);
 
                 if (!enoughBal) {
+                    if (order.createdTimestamp.toNumber() + config.depositThresold * 60 > Date.now()/1000) {
+                        return; //Skip checking balance for 5 minutes from order created time
+                    }
+
                     return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, false);
                 }
 

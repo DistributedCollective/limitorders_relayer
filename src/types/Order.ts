@@ -26,6 +26,7 @@ interface Order extends BaseOrder {
     r: string;
     s: string;
     trade?: Trade;
+    filledPrice: number;
 }
 
 export default Order;

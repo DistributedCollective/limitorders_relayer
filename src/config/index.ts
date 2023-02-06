@@ -28,6 +28,7 @@ interface Config {
     tokens: TokenEntry[];
     minOrderSize: number;
     maxOrdersInBatch: number;
+    depositThresold: number;
     accounts: RelayerAccount[];
     blockExplorer: string;
     loanContracts: { [x: string]: string };

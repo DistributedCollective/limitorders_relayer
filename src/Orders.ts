@@ -292,7 +292,8 @@ class Orders {
             relayer: order.relayer,
             txHash: order.txHash,
             pair: order.pair,
-            matchPercent: order.matchPercent
+            matchPercent: order.matchPercent,
+            filledPrice: order.filledPrice
         };
         
         const pairTokens = this.getPair(order.fromToken, order.toToken);
@@ -383,6 +384,10 @@ class Orders {
                 const enoughBal = await p.checkOrderOwnerBalance(order, provider);
 
                 if (!enoughBal) {
+                    if (order.created.toNumber() + config.depositThresold * 60 > Date.now()/1000) {
+                        return; //Skip checking balance for 5 minutes from order created time
+                    }
+
                     return Db.updateOrdersStatus([order.hash], OrderStatus.failed_notEnoughBalance, null, true);
                 }
 
