@@ -23,7 +23,7 @@ export type OnCreateOrder = (hash: string) => Promise<void> | void;
 export type OnCancelOrder = (hash: string) => Promise<void> | void;
 
 const LIMIT = 20;
-const BLOCKS_PER_DAY = 20000;
+const BLOCKS_PER_DAY = 1000;
 let _relayerFeePercent, _minSwapOrderTxFee;
 
 const equalsCurrency = (currency1: Currency, currency2: Currency) => {
